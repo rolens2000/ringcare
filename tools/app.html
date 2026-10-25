@@ -1,0 +1,889 @@
+<title>AI 링케어 시제품</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: 돌봄 관제 콘솔 — 위험도순 목록(좌) + 선택한 어르신의 근거 패널(우), 좁은 화면에서는 위아래로 */
+:root {
+  --bg: #F3F5F6; --surface: #FFFFFF; --sunk: #E9EDEF; --line: #D5DCDF;
+  --ink: #18252B; --muted: #5A6A71; --accent: #136C72; --accent-soft: #DCEFEF;
+  --crisis: #C2362F; --crisis-soft: #FBE6E4; --warn: #B76A00; --warn-soft: #FCEFD9;
+  --ok: #2F7D4F; --ok-soft: #E1F2E7; --band: rgba(19,108,114,.13); --grid: #E3E8EA;
+  --f-body: 'IBM Plex Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --f-data: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0F1619; --surface: #172126; --sunk: #1E2A30; --line: #2C3B42;
+  --ink: #E4ECEE; --muted: #96A7AE; --accent: #5CC2C6; --accent-soft: #173A3D;
+  --crisis: #F07A72; --crisis-soft: #3A1D1C; --warn: #E8A64A; --warn-soft: #3A2A12;
+  --ok: #6CC791; --ok-soft: #173123; --band: rgba(92,194,198,.16); --grid: #24323A; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0F1619; --surface: #172126; --sunk: #1E2A30; --line: #2C3B42;
+  --ink: #E4ECEE; --muted: #96A7AE; --accent: #5CC2C6; --accent-soft: #173A3D;
+  --crisis: #F07A72; --crisis-soft: #3A1D1C; --warn: #E8A64A; --warn-soft: #3A2A12;
+  --ok: #6CC791; --ok-soft: #173123; --band: rgba(92,194,198,.16); --grid: #24323A; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.55; margin: 0; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-inline: 16px; padding-block: 16px 48px; }
+header.top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding-block: 8px 14px; }
+.brand { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.brand h1 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+.brand .sub { color: var(--muted); font-size: 13px; }
+.badges { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+.badge { font-size: 12px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); background: var(--surface); white-space: nowrap; }
+.badge.ai-on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+nav.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); overflow-x: auto; margin-bottom: 18px; }
+nav.tabs button { font: inherit; font-size: 14px; background: none; border: 0; padding: 10px 14px; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; }
+nav.tabs button[aria-selected="true"] { color: var(--ink); font-weight: 600; border-bottom-color: var(--accent); }
+nav.tabs button:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.note { font-size: 13px; color: var(--muted); }
+h2 { font-size: 18px; margin: 0 0 4px; text-wrap: balance; }
+h3 { font-size: 15px; margin: 0 0 8px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; }
+.btn { font: inherit; font-size: 14px; border: 1px solid var(--accent); background: var(--accent); color: var(--surface); padding: 8px 14px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+select, textarea, input[type=text] { font: inherit; font-size: 14px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; max-width: 100%; }
+.num { font-family: var(--f-data); font-variant-numeric: tabular-nums; }
+
+/* summary strip */
+.strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.stat .k { font-size: 12px; color: var(--muted); letter-spacing: .02em; }
+.stat .v { font-size: 22px; font-weight: 700; }
+.stat .v small { font-size: 13px; font-weight: 500; color: var(--muted); }
+
+/* console */
+.console { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 16px; align-items: start; }
+.list { display: flex; flex-direction: column; gap: 10px; }
+.elder { background: var(--surface); border: 1px solid var(--line); border-left-width: 5px; border-radius: 10px; padding: 12px 14px; cursor: pointer; text-align: left; font: inherit; color: inherit; width: 100%; }
+.elder[data-level="2"] { border-left-color: var(--crisis); }
+.elder[data-level="1"] { border-left-color: var(--warn); }
+.elder[data-level="0"] { border-left-color: var(--ok); }
+.elder[aria-current="true"] { box-shadow: 0 0 0 2px var(--accent); }
+.elder .row1 { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.elder .nm { font-weight: 600; font-size: 16px; }
+.elder .meta { font-size: 12px; color: var(--muted); }
+.recIn { width: 100%; }
+table.rec td { vertical-align: top; }
+.filter { display: flex; gap: 6px; flex-wrap: wrap; }
+.filter button { font: inherit; font-size: 13px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); cursor: pointer; }
+.filter button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+.tag { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 4px; margin-right: 4px; background: var(--sunk); color: var(--muted); }
+.tag.bed { background: var(--accent-soft); color: var(--accent); }
+.elder .why { font-size: 13px; margin-top: 6px; color: var(--ink); }
+.chip { font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+.chip.l2 { background: var(--crisis-soft); color: var(--crisis); }
+.chip.l1 { background: var(--warn-soft); color: var(--warn); }
+.chip.l0 { background: var(--ok-soft); color: var(--ok); }
+.scenario { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+.scenario label { font-size: 11px; color: var(--muted); letter-spacing: .03em; }
+.scenario select { width: 100%; }
+
+.detail { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.verdict { border-radius: 10px; padding: 14px 16px; border: 1px solid var(--line); }
+.verdict.l2 { background: var(--crisis-soft); border-color: var(--crisis); }
+.verdict.l1 { background: var(--warn-soft); border-color: var(--warn); }
+.verdict.l0 { background: var(--ok-soft); border-color: var(--ok); }
+.verdict .head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.verdict .title { font-size: 20px; font-weight: 700; }
+.cols2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+ul.plain { margin: 0; padding-left: 18px; }
+ul.plain li { margin: 2px 0; font-size: 14px; }
+.chart { width: 100%; overflow-x: auto; }
+.chart svg { display: block; width: 100%; height: auto; min-width: 280px; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 4px; }
+.legend i { display: inline-block; width: 14px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+.quote { background: var(--sunk); border-radius: 8px; padding: 8px 12px; font-size: 14px; margin-top: 6px; }
+table.t { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.t th, table.t td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.t th { font-size: 12px; color: var(--muted); font-weight: 600; letter-spacing: .02em; }
+.tscroll { overflow-x: auto; }
+
+/* chat */
+.chatwrap { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.bubbles { display: flex; flex-direction: column; gap: 8px; min-height: 260px; max-height: 460px; overflow-y: auto; padding: 4px; }
+.bub { max-width: 85%; padding: 9px 12px; border-radius: 12px; font-size: 15px; }
+.bub.ai { background: var(--accent-soft); align-self: flex-start; border-bottom-left-radius: 3px; }
+.bub.me { background: var(--sunk); align-self: flex-end; border-bottom-right-radius: 3px; }
+.bub .m { display: block; font-size: 11px; color: var(--muted); margin-top: 3px; }
+.ctl { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+.ctl input[type=text] { flex: 1 1 200px; min-width: 0; }
+.mic { font-size: 13px; color: var(--muted); }
+.mic.live { color: var(--crisis); font-weight: 600; }
+
+/* bars */
+.bar { height: 8px; background: var(--sunk); border-radius: 4px; overflow: hidden; min-width: 60px; }
+.bar > span { display: block; height: 100%; }
+.kpi { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.kpi .stat .v { font-size: 20px; }
+.vs { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.vs .old { color: var(--muted); text-decoration: line-through; font-size: 15px; }
+.prose p { margin: 0 0 10px; max-width: 70ch; }
+.arch { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.arch .panel h3 { color: var(--accent); }
+.hidden-sr { position: absolute; left: -9999px; }
+
+@media (max-width: 860px) {
+  .console, .chatwrap { grid-template-columns: minmax(0, 1fr); }
+  .strip, .kpi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cols2, .arch { grid-template-columns: minmax(0, 1fr); }
+  .badges { margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>AI 링케어</h1>
+      <span class="sub">독거 어르신 · 요양병원 와상 환자 위기·인지변화 교차검증 돌봄 콘솔</span>
+    </div>
+    <div class="badges">
+      <span class="badge">시제품(PoC) · 가상 인물·합성 데이터</span>
+      <span class="badge" id="aiBadge">기본 분석 모드</span>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="화면">
+    <button role="tab" id="t-dash" aria-selected="true" data-tab="dash">돌봄 대시보드</button>
+    <button role="tab" id="t-call" aria-selected="false" data-tab="call">AI 안부대화</button>
+    <button role="tab" id="t-memo" aria-selected="false" data-tab="memo">케어브릿지 메모</button>
+    <button role="tab" id="t-rec" aria-selected="false" data-tab="rec">돌봄 기록</button>
+    <button role="tab" id="t-val" aria-selected="false" data-tab="val">검증 결과</button>
+    <button role="tab" id="t-about" aria-selected="false" data-tab="about">서비스 소개</button>
+  </nav>
+
+  <!-- 대시보드 -->
+  <section id="p-dash" role="tabpanel" aria-labelledby="t-dash">
+    <div class="strip" id="strip"></div>
+    <div class="console">
+      <div class="list" id="list" aria-label="위험도순 어르신 목록"></div>
+      <div class="detail" id="detail"></div>
+    </div>
+  </section>
+
+  <!-- 안부대화 -->
+  <section id="p-call" role="tabpanel" aria-labelledby="t-call" hidden>
+    <div class="chatwrap">
+      <div class="panel">
+        <h2>AI 안부대화 체험</h2>
+        <p class="note">AI가 네 가지를 묻습니다. 어르신이 된 것처럼 말로 답하거나(크롬·엣지 권장) 글로 입력하세요. 대화가 끝나면 선택한 어르신의 오늘 링 신호와 합쳐 위험도를 다시 판단합니다.</p>
+        <div class="ctl">
+          <label for="callWho" class="note">대상</label>
+          <select id="callWho"></select>
+          <button class="btn" id="callStart">대화 시작</button>
+          <span class="mic" id="micState"></span>
+        </div>
+        <div class="bubbles" id="bubbles" aria-live="polite"></div>
+        <form class="ctl" id="typeForm">
+          <label for="typeIn" class="hidden-sr">답변 입력</label>
+          <input type="text" id="typeIn" placeholder="말이 안 되면 여기에 답을 입력하세요" disabled>
+          <button class="btn ghost" id="typeSend" type="submit" disabled>보내기</button>
+          <button class="btn ghost" id="micBtn" type="button" disabled>말로 답하기</button>
+        </form>
+      </div>
+      <div class="panel" id="callResult">
+        <h2>대화 분석</h2>
+        <p class="note">대화를 마치면 응답 시간, 말 속도, 감지된 위험 신호, 교차검증 결과가 여기에 표시됩니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 케어브릿지 -->
+  <section id="p-memo" role="tabpanel" aria-labelledby="t-memo" hidden>
+    <div class="cols2">
+      <div class="panel">
+        <h2>관찰 메모 → 한국어 기록 초안</h2>
+        <p class="note">요양보호사가 한국어나 모국어로 짧게 쓴 메모를 8개 기록 항목으로 정리합니다. 메모에 없는 시점·섭취량·복약 여부는 채우지 않고 "미기재"로 남겨 담당자가 확인하게 합니다. 실제 이름·연락처는 넣지 마세요.</p>
+        <div class="ctl">
+          <button class="btn ghost" type="button" data-sample="ko">한국어 예시</button>
+          <button class="btn ghost" type="button" data-sample="vi">베트남어 예시</button>
+          <button class="btn ghost" type="button" data-sample="en">영어 예시</button>
+          <button class="btn ghost" type="button" data-sample="zh">중국어 예시</button>
+        </div>
+        <label for="memoIn" class="hidden-sr">관찰메모</label>
+        <textarea id="memoIn" rows="6" style="width:100%;margin-top:10px"></textarea>
+        <div class="ctl">
+          <label for="dictLang" class="note">받아쓰기 언어</label>
+          <select id="dictLang">
+            <option value="ko-KR">한국어</option><option value="vi-VN">베트남어</option><option value="en-US">영어</option><option value="zh-CN">중국어</option>
+            <option value="ne-NP">네팔어</option><option value="id-ID">인도네시아어</option><option value="uz-UZ">우즈베크어</option>
+          </select>
+          <button class="btn ghost" id="dictBtn" type="button">말로 메모하기</button>
+          <span class="mic" id="dictState"></span>
+        </div>
+        <p class="note" style="margin-top:4px">받아쓰기는 누를 때만 작동하며 녹음 파일을 만들거나 저장하지 않습니다(상시 녹음 없음).</p>
+        <div class="ctl">
+          <button class="btn" id="memoGo" type="button">기록 초안 만들기</button>
+          <label for="memoWho" class="note">대상 어르신</label>
+          <select id="memoWho"></select>
+        </div>
+        <div class="ctl">
+          <button class="btn ghost" id="memoApply" type="button" disabled>대시보드에 반영</button>
+          <button class="btn ghost" id="memoToRec" type="button" disabled>돌봄 기록으로 보내기</button>
+        </div>
+      </div>
+      <div class="panel" id="memoOut">
+        <h2>기록 초안</h2>
+        <p class="note">왼쪽에서 메모를 넣고 "기록 초안 만들기"를 누르면 항목별 초안과 근거 원문, 다음 확인사항이 여기에 나옵니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 돌봄 기록 -->
+  <section id="p-rec" role="tabpanel" aria-labelledby="t-rec" hidden>
+    <div class="panel" style="margin-bottom:14px">
+      <h2>돌봄 기록 자동 작성·저장</h2>
+      <p class="note">링 센서 관찰, AI 대화, 요양보호사 메모를 출처별로 모아 오늘 기록 초안을 만듭니다. 담당자가 고치고 승인해야 확정되며, 가족 공유는 승인 뒤에만 열립니다. 장기요양급여제공기록지를 대체하거나 공단에 자동 입력하지 않습니다.</p>
+      <div class="ctl">
+        <label for="recWho" class="note">대상 어르신</label>
+        <select id="recWho"></select>
+        <button class="btn" id="recMake" type="button">오늘 기록 초안 만들기</button>
+        <span class="note" id="recSaveState"></span>
+      </div>
+    </div>
+    <div class="panel" id="recEditor"><p class="note">대상을 고르고 "오늘 기록 초안 만들기"를 누르세요.</p></div>
+    <div class="panel" style="margin-top:14px">
+      <h3>저장된 기록</h3>
+      <p class="note">이 브라우저에만 저장됩니다(서버 전송 없음). 기관 시스템으로 옮길 때는 내보내기를 쓰세요.</p>
+      <div class="tscroll" id="recList"></div>
+      <div class="ctl">
+        <button class="btn ghost" id="recCopy" type="button">기록 내보내기(복사)</button>
+        <a class="btn ghost" id="recDl" href="#" download="ringcare_records.csv">CSV 내려받기</a>
+        <button class="btn ghost" id="recClear" type="button">저장 기록 지우기</button>
+        <span class="note" id="recMsg"></span>
+      </div>
+      <textarea id="recBox" rows="4" style="width:100%;margin-top:8px" readonly aria-label="기록 내보내기"></textarea>
+    </div>
+  </section>
+
+  <!-- 검증 -->
+  <section id="p-val" role="tabpanel" aria-labelledby="t-val" hidden>
+    <div class="panel" style="margin-bottom:14px">
+      <h2>사전검증(Pre-R&amp;D): 링 단독 판단 vs 교차검증</h2>
+      <p class="note" id="valMeta"></p>
+    </div>
+    <div class="kpi" id="kpi"></div>
+    <div class="panel" style="margin-top:14px">
+      <h3>대상별 결과</h3>
+      <div class="tscroll" id="valSetting"></div>
+    </div>
+    <div class="panel" style="margin-top:14px">
+      <h3>가상 인물별 결과</h3>
+      <div class="tscroll" id="valPersona"></div>
+    </div>
+    <div class="panel" style="margin-top:14px">
+      <h3>시나리오별 정답 일치율</h3>
+      <div class="tscroll" id="valTable"></div>
+    </div>
+    <div class="panel" style="margin-top:14px">
+      <h3>기록 초안 평가 (합성 메모 24건 · 4개 언어)</h3>
+      <div class="tscroll" id="valDraft"></div>
+    </div>
+    <div class="panel" style="margin-top:14px">
+      <h3>실측 데이터로 확인하기</h3>
+      <p class="note">휴대폰·스마트워치 건강 앱에서 내보낸 기록을 CSV(시각, 걸음 수, 심박)로 올리면 같은 개인 기준선 규칙으로 분석합니다. 마지막 날을 "오늘"로 보고 이전 날(최대 14일)을 기준선으로 씁니다. 파일은 서버로 보내지 않고 이 브라우저에서만 처리합니다.</p>
+      <div class="ctl">
+        <input type="file" id="realFile" accept=".csv,text/csv" aria-label="실측 CSV 파일">
+        <label for="realSleep" class="note">취침</label><input type="text" id="realSleep" value="22" size="2" aria-label="취침 시각">
+        <label for="realWake" class="note">기상</label><input type="text" id="realWake" value="6" size="2" aria-label="기상 시각">
+        <button class="btn ghost" id="realSample" type="button">예시 CSV 넣기</button>
+      </div>
+      <textarea id="realText" rows="3" style="width:100%;margin-top:8px" placeholder="datetime,steps,heart_rate&#10;2026-10-01 08:00,320,74" aria-label="실측 CSV 내용"></textarea>
+      <div class="ctl"><button class="btn" id="realGo" type="button">실측 데이터 분석</button></div>
+      <div id="realOut"></div>
+    </div>
+    <div class="panel" style="margin-top:14px">
+      <h3>결과 데이터</h3>
+      <p class="note">모든 수치는 합성 시나리오 기반 사전검증 결과이며 실제 현장 성능이 아닙니다.</p>
+      <div class="ctl">
+        <button class="btn ghost" id="csvCopy" type="button">요약 결과 복사</button>
+        <a class="btn ghost" id="csvDl" href="#" download="ringcare_validation.csv">CSV 내려받기</a>
+        <span class="note" id="copyMsg"></span>
+      </div>
+      <textarea id="csvBox" rows="5" style="width:100%;margin-top:8px" readonly aria-label="요약 결과"></textarea>
+    </div>
+  </section>
+
+  <!-- 소개 -->
+  <section id="p-about" role="tabpanel" aria-labelledby="t-about" hidden>
+    <div class="panel prose" style="margin-bottom:14px">
+      <h2>무엇을 해결하나요</h2>
+      <p>혼자 사는 어르신의 위기는 조용히 진행됩니다. 기존 활동감지 센서는 "움직임이 있는가" 하나만 보기 때문에, 낮잠이나 충전 중 미착용에도 경보가 울리고 담당자는 매번 확인하러 가야 합니다.</p>
+      <p>요양병원에 누워 지내는 와상 환자도 같은 문제를 겪습니다. 움직이지 않는 것이 평소 모습이라 활동감지로는 위기를 구분할 수 없고, 야간에는 간병 인력이 적으며, 외국인 간병인의 관찰 내용이 언어 때문에 기록에서 빠지기 쉽습니다. 링케어는 와상 환자에게는 '움직임이 있는가' 대신 '2시간 체위 변경이 실제로 이뤄졌는가', '발열과 심박이 함께 오르는가', '새벽에 침상을 벗어나려 하는가'를 봅니다.</p>
+      <p>메모 기능은 아이디어 챌린지 후보작 「케어브릿지」의 원칙을 따릅니다. 요양보호사의 짧은 메모를 한국어 기록 초안으로 정리하되 원문을 함께 보여주고, 메모에 없는 내용은 채우지 않고 확인 항목으로 남기며, 진단이나 건강위험 판정은 하지 않고, 가족 공유는 담당자 승인 뒤에만 엽니다. 케어브릿지 연계 범위는 재가·요양시설·교육기관이며, 요양병원 와상 환자 모드는 케어브릿지 범위 밖에서 링케어가 자체적으로 확장한 기능입니다.</p>
+      <p>AI 링케어는 몸의 신호(스마트링), 말의 신호(AI 안부대화), 기록의 신호(외국인 돌봄인력 메모)를 한 엔진에서 교차검증합니다. 링이 멈췄어도 전화에 평소처럼 답하면 경보를 거르고, 링이 멈췄는데 전화도 받지 않으면 즉시 방문을 요청합니다.</p>
+    </div>
+    <div class="arch">
+      <div class="panel"><h3>몸의 신호</h3><p class="note">스마트링의 심박·걸음·피부온도·착용 여부를 어르신별 최근 14일 시간대 기준선과 비교합니다.</p></div>
+      <div class="panel"><h3>말의 신호</h3><p class="note">AI가 식사·수면·기분·통증을 묻고, 응답 여부·위험 표현·말 속도·응답 지연을 기록합니다.</p></div>
+      <div class="panel"><h3>기록의 신호</h3><p class="note">케어브릿지 연계: 외국인 요양보호사의 모국어 메모를 한국어 항목으로 정리해 판단에 넣습니다.</p></div>
+    </div>
+    <div class="panel prose" style="margin-top:14px">
+      <h3>이 시제품의 범위와 원칙</h3>
+      <ul class="plain">
+        <li>모든 인물은 가명이며 데이터는 합성 데이터입니다. 실제 어르신의 건강·음성 정보는 수집하지 않았습니다.</li>
+        <li>인지 추세는 의료적 진단이 아니며, 치매안심센터 선별검사를 안내하는 참고 신호로만 씁니다.</li>
+        <li>AI는 우선순위를 제안할 뿐이고, 출동과 의료 연계 결정은 담당자가 합니다. 요양병원에서는 담당 간호사와 의사가 판단합니다.</li>
+        <li>야간 초조·침상 이탈 신호는 관찰을 늘리는 데 쓰며, 신체보호대 사용을 권하지 않습니다. 신체보호대는 의료법 시행규칙의 사용 기준에 따른 최후 수단입니다.</li>
+        <li>실시간 링 연동과 실제 전화 발신은 후속 개발 범위입니다. 이 시제품은 판단 로직의 실현 가능성을 검증합니다.</li>
+        <li>보건복지부 응급안전안심서비스·노인맞춤돌봄서비스의 고도화 모듈로 쓰이도록 설계했습니다.</li>
+      </ul>
+    </div>
+  </section>
+</div>
+
+<script>
+/*__ENGINE__*/
+</script>
+<script>
+(function () {
+  'use strict';
+  const R = window.RingCare;
+  const $ = (s, el) => (el || document).querySelector(s);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const LV = ['안정', '주의', '위기'];
+  const LV_DESC = ['평소와 같음', '담당자 당일 확인', '즉시 방문 필요'];
+
+  // ───── 상태 ─────
+  const state = {
+    assign: { kim: 'nap', park: 'fall', lee: 'memo', choi: 'normal', han: 'outing', yoon: 'mood', jung: 'bed_mismatch', song: 'bed_normal', kang: 'bed_sepsis', oh: 'bed_visit' },
+    filter: 'all', famOk: {},
+    memo: {},        // pid -> {text, result}
+    live: {},        // pid -> live call {answered, text, features}
+    sel: null, ai: false,
+  };
+  function seedOf(pid, sid) { let h = 2166136261; for (const c of pid + '|' + sid) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+
+  function evalPersona(p) {
+    const sc = R.SCENARIOS.find(s => s.id === state.assign[p.id]);
+    const data = R.generate(p, sc, seedOf(p.id, sc.id));
+    const ring = R.ringFlags(p, data);
+    const memoText = state.memo[p.id] ? state.memo[p.id].text : sc.memo;
+    let memo = memoText ? R.analyzeMemo(memoText) : null;
+    if (state.memo[p.id] && state.memo[p.id].result) memo = state.memo[p.id].result;
+    const call = state.live[p.id] || R.callFor(p, sc);
+    const res = R.decide(ring, call, memo);
+    if (state.live[p.id] && state.live[p.id].extra) state.live[p.id].extra.forEach(x => { if (!res.reasons.includes(x)) res.reasons.push(x); });
+    return { p, sc, data, ring, memo, memoText, call, res, ringOnly: R.decideRingOnly(ring) };
+  }
+
+  // ───── AI 서버 함수 (생성형 AI 모드, 없으면 기본 분석) ─────
+  async function ai(task, payload) {
+    if (!state.ai) return null;
+    try {
+      const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 20000);
+      const r = await fetch(state.aiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ task, ...payload }), signal: ctl.signal });
+      clearTimeout(tm);
+      if (!r.ok) return null;
+      return await r.json();
+    } catch (e) { return null; }
+  }
+  // 서버 함수 위치를 차례로 확인: Vercel(/api/ai) → Netlify. 정적 호스팅(GitHub Pages)에서는 둘 다 없으므로 기본 분석 모드 유지
+  (async function ping() {
+    if (location.protocol === 'file:') return;
+    for (const url of ['/api/ai', '/.netlify/functions/ai']) {
+      try {
+        const ctl = new AbortController(); setTimeout(() => ctl.abort(), 5000);
+        const r = await fetch(url, { signal: ctl.signal });
+        if (!r.ok) continue;
+        const j = await r.json();
+        if (j && j.ok) { state.ai = true; state.aiUrl = url; const b = $('#aiBadge'); b.textContent = '생성형 AI 연결됨'; b.classList.add('ai-on'); return; }
+      } catch (e) { /* 다음 후보 확인 */ }
+    }
+  })();
+
+  // ───── 탭 ─────
+  const TABS = ['dash', 'call', 'memo', 'rec', 'val', 'about'];
+  function showTab(id) {
+    document.querySelectorAll('nav.tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === id)));
+    TABS.forEach(t => { $('#p-' + t).hidden = t !== id; });
+    if (id === 'val') renderValidation();
+    if (id === 'rec') renderRecTab();
+  }
+  document.querySelectorAll('nav.tabs button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+  const h0 = (location.hash || '').slice(1); if (TABS.includes(h0)) setTimeout(() => showTab(h0), 0);
+
+  // ───── SVG 차트 ─────
+  function lineChart(o) {
+    const W = o.W || 640, H = o.H || 190, L = 40, Rm = 12, T = 12, B = 26;
+    const xs = o.x, n = xs.length;
+    const allv = [].concat(...o.series.map(s => s.values.filter(v => v != null)), o.band ? o.band.lo.concat(o.band.hi) : []);
+    let lo = Math.min(...allv), hi = Math.max(...allv);
+    if (o.yMin != null) lo = Math.min(lo, o.yMin);
+    const pad = (hi - lo) * 0.1 || 1; lo = Math.max(o.floor != null ? o.floor : -Infinity, lo - pad); hi = hi + pad;
+    const X = i => L + (W - L - Rm) * (i / (n - 1)), Y = v => T + (H - T - B) * (1 - (v - lo) / (hi - lo));
+    const ticks = 4, ty = []; for (let k = 0; k <= ticks; k++) ty.push(lo + (hi - lo) * k / ticks);
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.label)}">`;
+    ty.forEach(v => { s += `<line x1="${L}" x2="${W - Rm}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--grid)" stroke-width="1"/><text x="${L - 6}" y="${Y(v) + 4}" text-anchor="end" font-size="11" fill="var(--muted)" class="num">${o.dec ? v.toFixed(o.dec) : Math.round(v)}</text>`; });
+    xs.forEach((x, i) => { if (o.xEvery && i % o.xEvery) return; s += `<text x="${X(i)}" y="${H - 8}" text-anchor="middle" font-size="11" fill="var(--muted)">${esc(x)}</text>`; });
+    if (o.shade) o.shade.forEach(([a, b2]) => { s += `<rect x="${X(a) - 4}" y="${T}" width="${Math.max(8, X(b2) - X(a) + 8)}" height="${H - T - B}" fill="var(--sunk)"/>`; });
+    if (o.band) {
+      let d = ''; o.band.hi.forEach((v, i) => d += (i ? 'L' : 'M') + X(i) + ' ' + Y(v));
+      for (let i = n - 1; i >= 0; i--) d += 'L' + X(i) + ' ' + Y(o.band.lo[i]);
+      s += `<path d="${d}Z" fill="var(--band)" stroke="none"/>`;
+    }
+    o.series.forEach(se => {
+      let d = '', pen = false, last = null;
+      se.values.forEach((v, i) => { if (v == null) { pen = false; return; } d += (pen ? 'L' : 'M') + X(i) + ' ' + Y(v); pen = true; last = [X(i), Y(v)]; });
+      s += `<path d="${d}" fill="none" stroke="${se.color}" stroke-width="${se.w || 2}" ${se.dash ? 'stroke-dasharray="4 4"' : ''} stroke-linejoin="round"/>`;
+      if (last && se.dot) s += `<circle cx="${last[0]}" cy="${last[1]}" r="4" fill="${se.color}"/>`;
+    });
+    if (o.marker != null) s += `<line x1="${X(o.marker)}" x2="${X(o.marker)}" y1="${T}" y2="${H - B}" stroke="var(--warn)" stroke-dasharray="3 3"/><text x="${X(o.marker) + 4}" y="${T + 11}" font-size="11" fill="var(--warn)">${esc(o.markerLabel || '')}</text>`;
+    return s + '</svg>';
+  }
+
+  // ───── 대시보드 ─────
+  function renderDash() {
+    const all = R.PERSONAS.map(evalPersona).sort((a, b) => b.res.level - a.res.level);
+    const evs = all.filter(e => state.filter === 'all' || R.settingOf(e.p) === state.filter);
+    if (!state.sel || !evs.some(e => e.p.id === state.sel)) state.sel = evs[0].p.id;
+    const cnt = [0, 0, 0]; all.forEach(e => cnt[e.res.level]++);
+    const ringUrg = all.filter(e => e.ringOnly === 2).length, ourUrg = cnt[2];
+    $('#strip').innerHTML = `
+      <div class="stat"><div class="k">즉시 확인·방문 (위기)</div><div class="v num" style="color:var(--crisis)">${cnt[2]}<small> 명</small></div></div>
+      <div class="stat"><div class="k">당일 확인 (주의)</div><div class="v num" style="color:var(--warn)">${cnt[1]}<small> 명</small></div></div>
+      <div class="stat"><div class="k">평소와 같음 (안정)</div><div class="v num" style="color:var(--ok)">${cnt[0]}<small> 명</small></div></div>
+      <div class="stat"><div class="k">위기 경보 (링 단독 → 링케어)</div><div class="v num">${ringUrg} → ${ourUrg}<small> 건</small></div></div>`;
+    const cntOf = k => all.filter(e => k === 'all' || R.settingOf(e.p) === k).length;
+    $('#list').innerHTML = `<div class="filter" role="group" aria-label="대상 선택">${[['all', '전체'], ['home', '재가 독거'], ['bed', '요양병원']].map(([k, nm]) => `<button type="button" data-f="${k}" aria-pressed="${state.filter === k}">${nm} <span class="num">${cntOf(k)}</span></button>`).join('')}</div>` + evs.map(e => `
+      <div class="elder" data-level="${e.res.level}" data-pid="${e.p.id}" aria-current="${e.p.id === state.sel}" tabindex="0" role="button" aria-label="${esc(e.p.name)} 상세 보기">
+        <div class="row1"><span class="nm">${esc(e.p.name)} <span class="meta">${e.p.age}세 · ${e.p.sex} · 가명</span></span><span class="chip l${e.res.level}">${LV[e.res.level]}</span></div>
+        <div class="meta"><span class="tag ${R.settingOf(e.p)}">${R.settingOf(e.p) === 'bed' ? '요양병원' : '재가 독거'}</span> ${esc(e.p.note)}</div>
+        <div class="why">${esc((e.res.reasons.find(r => r.startsWith('판단')) || '').replace('판단: ', ''))}</div>
+        <div class="scenario" onclick="event.stopPropagation()">
+          <label for="sc-${e.p.id}">시연 시나리오 바꾸기</label>
+          <select id="sc-${e.p.id}" data-pid="${e.p.id}">${R.scenariosFor(e.p).map(s => `<option value="${s.id}" ${s.id === state.assign[e.p.id] ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select>
+        </div>
+      </div>`).join('');
+    document.querySelectorAll('.filter button').forEach(bt => bt.addEventListener('click', () => { state.filter = bt.dataset.f; renderDash(); }));
+    document.querySelectorAll('.elder').forEach(el => {
+      const go = () => { state.sel = el.dataset.pid; renderDash(); };
+      el.addEventListener('click', go);
+      el.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(); } });
+    });
+    document.querySelectorAll('.scenario select').forEach(se => se.addEventListener('change', () => {
+      state.assign[se.dataset.pid] = se.value; delete state.live[se.dataset.pid]; delete state.memo[se.dataset.pid];
+      state.sel = se.dataset.pid; renderDash();
+    }));
+    renderDetail(evs.find(e => e.p.id === state.sel));
+  }
+
+  function renderDetail(e) {
+    const bedMode = R.settingOf(e.p) === 'bed';
+    const p = e.p, b = e.ring.baseline, T = e.data.today, hrs = T.map(s => s.h + '시');
+    const offRanges = []; let st = null; T.forEach((s, i) => { if (!s.worn && st == null) st = i; if (s.worn && st != null) { offRanges.push([st, i - 1]); st = null; } }); if (st != null) offRanges.push([st, T.length - 1]);
+    const band = key => ({ lo: T.map(s => Math.max(0, b[s.h][key] - 2 * 1.4826 * b[s.h][key + 'Mad'])), hi: T.map(s => b[s.h][key] + 2 * 1.4826 * b[s.h][key + 'Mad']) });
+    const cog = R.cognitionSeries(p);
+    const call = e.call;
+    const talk = e.res.talk;
+    const fam = bedMode ? (e.res.level === 2 ? `오늘 ${p.name} 님께 위기 신호가 있어 담당 간호사가 즉시 확인했습니다. 자세한 내용은 병동에서 안내드립니다.` :
+      e.res.level === 1 ? `오늘 ${p.name} 님은 ${e.res.reasons.find(r => r.startsWith('판단')).replace('판단: ', '').split(' → ')[0]} 신호가 있어 간병인과 간호사가 확인했습니다.` :
+      `이번 주 ${p.name} 님은 평소처럼 지내셨고 체위 변경과 식사도 기록대로 이루어졌습니다.`) :
+      e.res.level === 2 ? `오늘 ${p.name} 님께 위기 신호가 있어 담당 생활지원사가 방문했습니다.` :
+      e.res.level === 1 ? `오늘 ${p.name} 님은 ${talk.length ? talk.map(t => t.label).join(', ') : '생활 리듬 변화'}가 있어 담당자가 확인할 예정입니다.` :
+      `이번 주 ${p.name} 님은 평소처럼 지내셨고 매일 안부전화에 응답하셨습니다.`;
+    $('#detail').innerHTML = `
+      <div class="verdict l${e.res.level}">
+        <div class="head"><span class="title">${esc(p.name)} · ${LV[e.res.level]}</span><span class="note">${bedMode ? ['평소와 같음', '간병인·간호사 당일 확인', '담당 간호사 즉시 확인'][e.res.level] : LV_DESC[e.res.level]} · 기준 시각 오늘 ${R.NOW}시 · 시나리오: ${esc(e.sc.name)}</span></div>
+        <div class="cols2">
+          <div><h3>판단 근거</h3><ul class="plain">${e.res.reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul></div>
+          <div><h3>권장 조치</h3><ul class="plain">${e.res.actions.map(r => `<li>${esc(r)}</li>`).join('')}</ul>
+            <p class="note" style="margin-top:8px">링 단독 판단이었다면: <b>${LV[e.ringOnly]}</b></p></div>
+        </div>
+      </div>
+      <div class="cols2">
+        <div class="panel"><h3>${bedMode ? '오늘 움직임 (손 움직임 횟수/시간 · 짝수 시 체위 변경)' : '오늘 활동량 (걸음/시간)'}</h3><div class="chart">${lineChart({ label: '오늘 활동량과 평소 범위', W: 380, H: 220, x: hrs, xEvery: 3, floor: 0, band: band('steps'), shade: offRanges, series: [{ values: T.map(s => s.steps), color: 'var(--accent)', dot: true }] })}</div>
+          <div class="legend"><span><i style="background:var(--band)"></i>평소 범위(14일)</span><span><i style="background:var(--accent)"></i>오늘</span><span><i style="background:var(--sunk)"></i>링 미착용</span></div></div>
+        <div class="panel"><h3>오늘 심박 (bpm)</h3><div class="chart">${lineChart({ label: '오늘 심박과 평소 범위', W: 380, H: 220, x: hrs, xEvery: 3, band: band('hr'), shade: offRanges, series: [{ values: T.map(s => s.hr), color: 'var(--crisis)', dot: true }] })}</div>
+          <div class="legend"><span><i style="background:var(--band)"></i>평소 범위(14일)</span><span><i style="background:var(--crisis)"></i>오늘</span></div></div>
+      </div>
+      <div class="cols2">
+        <div class="panel"><h3>${bedMode ? 'AI 병상 대화 (침상 옆 스피커)' : 'AI 안부전화'}</h3>
+          <div>${call.na ? '야간·의사소통 어려움으로 대화 생략 → 센서와 간병 메모로 판단' : call.answered ? (call.retry ? '1차 부재 → 재통화 응답' : '정상 응답') : `<b style="color:var(--crisis)">2회 ${bedMode ? '무반응' : '무응답'}</b>`}${call.live ? ' · 직접 체험한 대화' : ''}</div>
+          ${call.answered && call.text ? `<div class="quote">"${esc(call.text)}"</div>` : ''}
+          ${talk.length ? `<p class="note" style="margin-top:6px">감지: ${talk.map(t => esc(t.label)).join(', ')}</p>` : ''}
+        </div>
+        <div class="panel"><h3>${bedMode ? '간병 메모 (케어브릿지)' : '돌봄메모 (케어브릿지)'}</h3>
+          ${e.memo ? `<div class="note">원문 언어: ${esc(e.memo.lang)}</div>${e.memoText ? `<div class="quote">${esc(e.memoText)}</div>` : ''}
+            <ul class="plain" style="margin-top:6px">${e.memo.items.length ? e.memo.items.map(i => `<li>${i.risk ? '<b>담당자 확인: ' : ''}${esc(i.label || i.content)}${i.risk ? '</b>' : ''}</li>`).join('') : '<li>특이사항 없음</li>'}</ul>
+            ${e.memo.checks && e.memo.checks.length ? `<p class="note" style="margin-top:4px">다음 확인사항: ${e.memo.checks.map(esc).join(' · ')}</p>` : ''}
+            <div class="ctl"><button class="btn ghost" type="button" id="toRec" data-pid="${p.id}">이 메모로 오늘 기록 초안 만들기</button></div>` : '<p class="note">오늘 작성된 메모가 없습니다.</p>'}
+        </div>
+      </div>
+      <div class="panel"><h3>말 속도 추세 (최근 16주, 초당 음절)</h3>
+        <div class="chart">${lineChart({ label: '주별 말 속도 추세', dec: 1, H: 200, x: cog.series.map(s => s.week + '주'), xEvery: 2, band: { lo: cog.series.map(() => cog.baseMedian - 1.5 * cog.baseSd), hi: cog.series.map(() => cog.baseMedian + 1.5 * cog.baseSd) }, series: [{ values: cog.series.map(s => s.rate), color: 'var(--muted)', w: 1.5 }, { values: cog.series.map(s => s.avg4), color: 'var(--accent)', dot: true }], marker: cog.flagWeek ? cog.flagWeek - 1 : null, markerLabel: '검사 권유' })}</div>
+        <div class="legend"><span><i style="background:var(--band)"></i>본인 기준 범위(1~6주)</span><span><i style="background:var(--accent)"></i>4주 평균</span><span><i style="background:var(--muted)"></i>주별 값</span></div>
+        <p class="note" style="margin-top:6px">${cog.flagWeek ? `${cog.flagWeek}주차부터 3주 연속 기준 범위 아래 → 치매안심센터 선별검사 안내 대상(진단 아님)` : '본인 기준 범위 안에서 안정적입니다.'} · 합성 데이터 예시</p>
+      </div>
+      <div class="panel"><h3>가족 안부 요약 (초안)</h3><p style="margin:0">${esc(fam)}</p>
+        <div class="ctl">${state.famOk[p.id] ? '<span class="chip l0">담당자 승인됨 · 공유 가능</span><span class="note">시연용으로 실제 발송은 하지 않습니다</span>' : `<span class="chip l1">담당자 승인 전 · 공유 안 됨</span><button class="btn ghost" type="button" id="famOk" data-pid="${p.id}">담당자 승인</button>`}</div>
+        <p class="note" style="margin:4px 0 0">보호자 동의와 공유 권한을 확인한 경우에만, 담당자 승인 후 보냅니다.</p></div>`;
+    const fb = $('#famOk'); if (fb) fb.addEventListener('click', () => { state.famOk[fb.dataset.pid] = true; renderDash(); });
+    const tr = $('#toRec'); if (tr) tr.addEventListener('click', () => { $('#recWho').value = tr.dataset.pid; showTab('rec'); makeRecord(); });
+  }
+
+  // ───── 안부대화 ─────
+  const QUESTIONS = ['어르신, 안녕하세요. 링케어예요. 오늘 아침 식사는 하셨어요?', '밤에 잠은 잘 주무셨어요?', '오늘 기분은 어떠세요?', '어디 아프거나 불편한 데는 없으세요?'];
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let chat = null;
+  const who = $('#callWho'), memoWho = $('#memoWho');
+  R.PERSONAS.forEach(p => { who.add(new Option(p.name + ' (가명)', p.id)); memoWho.add(new Option(p.name + ' (가명)', p.id)); });
+  memoWho.value = 'lee';
+
+  function bubble(cls, text, meta) {
+    const d = document.createElement('div'); d.className = 'bub ' + cls;
+    d.innerHTML = esc(text) + (meta ? `<span class="m">${esc(meta)}</span>` : '');
+    $('#bubbles').appendChild(d); $('#bubbles').scrollTop = 1e6;
+  }
+  function speak(text) {
+    return new Promise(res => {
+      if (!('speechSynthesis' in window)) return res();
+      try {
+        const u = new SpeechSynthesisUtterance(text); u.lang = 'ko-KR'; u.rate = 0.92;
+        u.onend = res; u.onerror = res; speechSynthesis.cancel(); speechSynthesis.speak(u);
+        setTimeout(res, 9000);
+      } catch (e) { res(); }
+    });
+  }
+  async function ask() {
+    const q = QUESTIONS[chat.i];
+    bubble('ai', q);
+    await speak(q);
+    chat.qEnd = performance.now();
+    $('#typeIn').disabled = false; $('#typeSend').disabled = false; $('#micBtn').disabled = !SR;
+    $('#typeIn').focus();
+  }
+  function answer(text, voice) {
+    if (!chat || !text.trim()) return;
+    const now = performance.now();
+    const a = { q: QUESTIONS[chat.i], text: text.trim(), voice: !!voice, latency: voice ? voice.latency : (now - chat.qEnd) / 1000 };
+    if (voice && voice.dur > 0.3) { const syl = (a.text.match(/[가-힣]/g) || []).length; a.rate = syl / voice.dur; }
+    chat.answers.push(a);
+    bubble('me', a.text, `${a.voice ? '음성' : '입력'} · 응답까지 ${a.latency.toFixed(1)}초${a.rate ? ` · 초당 ${a.rate.toFixed(1)}음절` : ''}`);
+    $('#typeIn').value = ''; $('#typeIn').disabled = true; $('#typeSend').disabled = true; $('#micBtn').disabled = true;
+    chat.i++;
+    if (chat.i < QUESTIONS.length) ask(); else finishChat();
+  }
+  $('#callStart').addEventListener('click', () => {
+    $('#bubbles').innerHTML = ''; chat = { pid: who.value, i: 0, answers: [] };
+    $('#micState').textContent = SR ? '말로 답하기를 누르고 말씀하세요' : '이 브라우저는 음성인식을 지원하지 않아 글로 입력합니다';
+    $('#callResult').innerHTML = '<h2>대화 분석</h2><p class="note">대화 중입니다…</p>';
+    ask();
+  });
+  $('#typeForm').addEventListener('submit', ev => { ev.preventDefault(); answer($('#typeIn').value, null); });
+  $('#micBtn').addEventListener('click', () => {
+    if (!SR || !chat) return;
+    const rec = new SR(); rec.lang = 'ko-KR'; rec.interimResults = false; rec.maxAlternatives = 1;
+    let t0 = performance.now(), sStart = null, sEnd = null, got = false;
+    const ms = $('#micState'); ms.textContent = '듣는 중…'; ms.classList.add('live');
+    rec.onspeechstart = () => { sStart = performance.now(); };
+    rec.onspeechend = () => { sEnd = performance.now(); };
+    rec.onresult = ev => {
+      got = true; const txt = ev.results[0][0].transcript; const end = sEnd || performance.now(); const st2 = sStart || t0;
+      answer(txt, { latency: (st2 - chat.qEnd) / 1000, dur: (end - st2) / 1000 });
+    };
+    rec.onerror = ev => { ms.textContent = ev.error === 'not-allowed' ? '마이크 권한이 없어 글로 입력해 주세요' : '잘 듣지 못했어요. 다시 누르거나 글로 입력하세요'; };
+    rec.onend = () => { ms.classList.remove('live'); if (got) ms.textContent = ''; };
+    try { rec.start(); } catch (e) { ms.textContent = '음성인식을 시작하지 못했어요. 글로 입력하세요'; ms.classList.remove('live'); }
+  });
+
+  async function finishChat() {
+    const all = chat.answers.map(a => a.text).join(' ');
+    const p = R.PERSONAS.find(x => x.id === chat.pid);
+    let signals = R.analyzeTalk(all);
+    let reply = '말씀 고맙습니다. 오늘도 편안한 하루 보내세요. 내일 또 전화드릴게요.';
+    let summary = null;
+    const g = await ai('chat', { answers: chat.answers.map(a => ({ q: a.q, a: a.text })) });
+    if (g && Array.isArray(g.signals)) {
+      const map = { physical: '통증·어지러움·낙상 호소', mood: '외로움·우울·식욕 저하 표현', fever: '발열·오한 표현', sleep: '수면 문제 표현', urgent: '자해·죽음 관련 발화' };
+      g.signals.forEach(s => { if (map[s.type] && !signals.some(x => x.code === s.type)) signals.push({ code: s.type, label: map[s.type] + ' (생성형 AI)' }); });
+      if (g.reply_ko) reply = g.reply_ko; if (g.summary_ko) summary = g.summary_ko;
+    }
+    bubble('ai', reply); speak(reply);
+    const lat = chat.answers.map(a => a.latency), rates = chat.answers.filter(a => a.rate).map(a => a.rate);
+    const avgLat = lat.reduce((a, b) => a + b, 0) / lat.length;
+    const extra = [];
+    if (rates.length) extra.push(`대화: 평균 말 속도 초당 ${(rates.reduce((a, b) => a + b, 0) / rates.length).toFixed(1)}음절 · 평균 응답 ${avgLat.toFixed(1)}초 (추세 기록용)`);
+    // 링 시나리오의 대화를 직접 체험한 대화로 교체
+    const text = all;
+    state.live[p.id] = { answered: true, text, live: true, extra };
+    if (signals.some(s => / \(생성형 AI\)$/.test(s.label))) {
+      // 생성형 AI가 추가로 찾은 신호를 키워드로 반영
+      const kw = { physical: ' 아프', mood: ' 외로', fever: ' 으슬', sleep: ' 잠이 안', urgent: ' 죽고 싶' };
+      signals.filter(s => / \(생성형 AI\)$/.test(s.label)).forEach(s => { state.live[p.id].text += kw[s.code] || ''; });
+    }
+    const ev = evalPersona(p);
+    $('#callResult').innerHTML = `<h2>대화 분석 · ${esc(p.name)}</h2>
+      <div class="verdict l${ev.res.level}" style="margin:8px 0 12px"><div class="head"><span class="title">${LV[ev.res.level]}</span><span class="note">오늘 링 신호(${esc(ev.sc.name)})와 교차검증</span></div>
+        <ul class="plain">${ev.res.reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul></div>
+      ${summary ? `<p><b>대화 요약</b> ${esc(summary)}</p>` : ''}
+      <div class="tscroll"><table class="t"><thead><tr><th>질문</th><th>응답</th><th>응답까지</th><th>말 속도</th></tr></thead><tbody>
+      ${chat.answers.map(a => `<tr><td>${esc(a.q.replace('어르신, 안녕하세요. 링케어예요. ', ''))}</td><td>${esc(a.text)}</td><td class="num">${a.latency.toFixed(1)}초</td><td class="num">${a.rate ? a.rate.toFixed(1) + '/초' : '-'}</td></tr>`).join('')}
+      </tbody></table></div>
+      <p class="note" style="margin-top:8px">감지된 신호: ${signals.length ? signals.map(s => esc(s.label)).join(', ') : '없음'}. 말 속도는 음성으로 답했을 때만 측정됩니다. 대시보드에도 반영했습니다.</p>`;
+    chat = null; renderDash();
+  }
+
+  // ───── 케어브릿지: 관찰 메모 → 기록 초안 ─────
+  const SAMPLES = {
+    ko: '점심을 절반 드셨고 무릎이 불편하다고 말씀하셨습니다. 복약 여부는 확인하지 못했습니다.',
+    vi: 'Bà ăn được nửa suất trưa. Bà nói đầu gối hơi đau. Chưa rõ bà đã uống thuốc chưa.',
+    en: 'Repositioned at 2 pm. She ate a little and had a red patch on her left heel.',
+    zh: '奶奶今天没吃早饭，昨晚在浴室滑倒，说髋部疼痛。',
+  };
+  document.querySelectorAll('[data-sample]').forEach(b => b.addEventListener('click', () => { $('#memoIn').value = SAMPLES[b.dataset.sample]; }));
+  $('#memoIn').value = SAMPLES.ko;
+  let lastMemo = null;
+  const KO = { '식사': '식사', '낙상': '낙상', '인지': '인지', '통증': '통증', '기분': '기분', '수면': '수면', '투약': '투약', '피부': '피부', '호흡': '호흡', '의식': '의식', '체위': '체위' };
+  const SRC_LABEL = { '메모': '요양보호사 메모', '본인 대화': '어르신 본인 표현', '자동 점검': '자동 점검', '스마트링 자동': '스마트링(자동)', 'AI 대화 자동': 'AI 대화(자동)', '생성형 AI': '생성형 AI 초안' };
+  function draftTable(d, editable) {
+    return `<div class="tscroll"><table class="t rec"><thead><tr><th style="width:17%">항목</th><th>초안${editable ? ' (담당자 수정 가능)' : ''}</th><th style="width:30%">근거</th><th style="width:13%">상태</th></tr></thead><tbody>
+      ${d.fields.map((f, i) => `<tr><td><b>${esc(f.key)}</b><div class="note">${esc(SRC_LABEL[f.src] || f.src)}</div></td>
+        <td>${editable ? `<input type="text" class="recIn" data-i="${i}" value="${esc(f.value)}" ${d.status === 'approved' ? 'disabled' : ''} aria-label="${esc(f.key)}">` : esc(f.value)}${f.edited ? '<div class="note">담당자 수정</div>' : ''}</td>
+        <td class="note">${esc(f.quote || '-')}</td>
+        <td>${f.pending ? '<span class="chip l1">확인 필요</span>' : f.value === '미기재' ? '<span class="chip l1">미기재</span>' : f.edited ? '<span class="chip l0">담당자 수정</span>' : /자동/.test(f.src) ? '<span class="tag">자동 기록</span>' : f.quote ? '<span class="chip l0">원문 근거</span>' : '<span class="tag">해당 없음</span>'}</td></tr>`).join('')}
+      </tbody></table></div>`;
+  }
+  $('#memoGo').addEventListener('click', async () => {
+    const text = $('#memoIn').value;
+    $('#memoOut').innerHTML = '<h2>기록 초안</h2><p class="note">정리하는 중…</p>';
+    let res = R.analyzeMemo(text), d = R.draftRecord(text), translation = null, mode = '기본 분석(다국어 규칙: 한국어·베트남어·영어·중국어)';
+    const g = await ai('record', { text });
+    if (g && Array.isArray(g.fields) && g.fields.length) {
+      mode = '생성형 AI'; translation = g.translation_ko || null;
+      d = { fields: g.fields.map(f => ({ key: f.key, value: f.value || '미기재', pending: !!f.pending, quote: f.quote || '', src: '생성형 AI' })), lang: g.lang || d.lang, original: text, status: 'draft' };
+      const gm = await ai('memo', { text });
+      if (gm && Array.isArray(gm.items)) { const items = gm.items.filter(i => i && i.category).map(i => ({ cat: KO[i.category] || i.category, label: i.content_ko || '', content: i.content_ko || '', risk: !!i.risk })); res = { lang: gm.lang || res.lang, items, risks: items.filter(i => i.risk), checks: res.checks }; }
+    }
+    lastMemo = { text, result: res, draft: d };
+    $('#memoApply').disabled = false; $('#memoToRec').disabled = false;
+    $('#memoOut').innerHTML = `<h2>기록 초안</h2>
+      <p class="note">원문 언어: ${esc(d.lang)} · 분석: ${esc(mode)}</p>
+      <div class="quote"><span class="note">원문</span><br>${esc(text)}</div>
+      ${translation ? `<div class="quote"><span class="note">한국어 번역(생성형 AI)</span><br>${esc(translation)}</div>` : ''}
+      <div style="margin-top:10px">${draftTable(d, false)}</div>
+      <p class="note" style="margin-top:8px">AI는 메모에 없는 시점·섭취량·정도·복약 여부를 추정하지 않으며 진단이나 건강위험 판정을 하지 않습니다. 기록 확정과 공유 범위는 담당자가 결정합니다.${mode.startsWith('기본') ? ' 기본 분석은 정해진 표현만 인식하므로 다른 표현이나 언어는 놓칠 수 있습니다. 생성형 AI 모드에서는 문장 전체를 번역해 정리합니다.' : ''}</p>`;
+  });
+  $('#memoApply').addEventListener('click', () => {
+    if (!lastMemo) return; state.memo[memoWho.value] = lastMemo; state.sel = memoWho.value; renderDash(); showTab('dash');
+  });
+  $('#memoToRec').addEventListener('click', () => {
+    if (!lastMemo) return; state.memo[memoWho.value] = lastMemo; $('#recWho').value = memoWho.value; showTab('rec'); makeRecord();
+  });
+
+  // ───── 받아쓰기 (누를 때만, 녹음 파일 없음) ─────
+  $('#dictBtn').addEventListener('click', () => {
+    const ds = $('#dictState');
+    if (!SR) { ds.textContent = '이 브라우저는 받아쓰기를 지원하지 않습니다(크롬·엣지 권장)'; return; }
+    const rec = new SR(); rec.lang = $('#dictLang').value; rec.interimResults = false; rec.continuous = false;
+    ds.textContent = '듣는 중… 말을 마치면 자동으로 멈춥니다'; ds.classList.add('live');
+    rec.onresult = ev => { const t = Array.from(ev.results).map(r => r[0].transcript).join(' '); const box = $('#memoIn'); box.value = (box.value.trim() ? box.value.trim() + ' ' : '') + t; };
+    rec.onerror = ev => { ds.textContent = ev.error === 'not-allowed' ? '마이크 권한이 없어 글로 입력해 주세요' : '받아쓰기를 하지 못했어요. 다시 누르거나 글로 입력하세요'; };
+    rec.onend = () => { ds.classList.remove('live'); if (ds.textContent.startsWith('듣는 중')) ds.textContent = '받아쓴 내용을 확인하고 고쳐 주세요'; };
+    try { rec.start(); } catch (e) { ds.textContent = '받아쓰기를 시작하지 못했어요'; ds.classList.remove('live'); }
+  });
+
+  // ───── 돌봄 기록: 자동 작성 · 자동 저장 · 승인 ─────
+  const STORE = 'ringcare.records.v1';
+  const loadRecs = () => { try { return JSON.parse(localStorage.getItem(STORE) || '[]'); } catch (e) { return []; } };
+  let memRecs = loadRecs();
+  const saveRecs = () => { try { localStorage.setItem(STORE, JSON.stringify(memRecs)); return true; } catch (e) { return false; } };
+  let curRec = null;
+  const recWho = $('#recWho');
+  R.PERSONAS.forEach(p => recWho.add(new Option(p.name + ' (가명)', p.id)));
+  const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  async function makeRecord() {
+    const p = R.PERSONAS.find(x => x.id === recWho.value), e = evalPersona(p);
+    const memoText = state.memo[p.id] ? state.memo[p.id].text : (e.sc.memo || '');
+    const talkText = e.call && e.call.answered ? e.call.text : '';
+    let d = (state.memo[p.id] && state.memo[p.id].draft && state.memo[p.id].draft.original === memoText) ? JSON.parse(JSON.stringify(state.memo[p.id].draft)) : R.draftRecord(memoText, { talkText });
+    const ext = R.draftRecord('', { ringFlags: e.ring.flags, call: e.call }).fields.filter(f => f.key.includes('링케어'));
+    d.fields = d.fields.filter(f => !f.key.includes('링케어')).concat(ext);
+    if (!memoText) d.fields.forEach(f => { if (f.src === '메모') { f.value = '오늘 메모 없음'; f.pending = false; f.quote = ''; } });
+    curRec = { id: p.id + '-' + today(), pid: p.id, name: p.name, date: today(), level: e.res.level, status: 'draft', created: new Date().toISOString(), approvedAt: null, fields: d.fields, original: memoText, share: false };
+    autoSave('초안 자동 저장됨');
+    renderRecEditor();
+  }
+  function autoSave(msg) {
+    if (!curRec) return;
+    const i = memRecs.findIndex(r => r.id === curRec.id);
+    if (i >= 0) memRecs[i] = curRec; else memRecs.unshift(curRec);
+    const ok = saveRecs();
+    $('#recSaveState').textContent = ok ? `${msg} · ${new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}` : '이 브라우저에서는 저장할 수 없어 화면에서만 유지됩니다';
+    renderRecList();
+  }
+  function renderRecEditor() {
+    const r = curRec, el = $('#recEditor');
+    if (!r) { el.innerHTML = '<p class="note">대상을 고르고 "오늘 기록 초안 만들기"를 누르세요.</p>'; return; }
+    const st = r.status === 'approved' ? `<span class="chip l0">승인됨</span> <span class="note">${new Date(r.approvedAt).toLocaleString('ko-KR')}</span>` : '<span class="chip l1">초안 · 담당자 확인 전</span>';
+    const pend = r.fields.filter(f => f.pending || f.value === '미기재').length;
+    el.innerHTML = `<div class="head" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><h3 style="margin:0">${esc(r.name)} · ${esc(r.date)} 돌봄 기록</h3>${st}<span class="chip l${r.level}">오늘 위험도 ${['안정', '주의', '위기'][r.level]}</span></div>
+      ${r.original ? `<div class="quote"><span class="note">메모 원문</span><br>${esc(r.original)}</div>` : ''}
+      <div style="margin-top:10px">${draftTable(r, true)}</div>
+      <div class="ctl">
+        ${r.status === 'approved' ? '<button class="btn ghost" id="recUnapprove" type="button">승인 취소</button>' : `<button class="btn" id="recApprove" type="button">담당자 승인</button><span class="note">${pend ? `확인 필요·미기재 ${pend}개 항목을 확인한 뒤 승인하세요` : ''}</span>`}
+        <button class="btn ghost" id="recShare" type="button" ${r.status === 'approved' ? '' : 'disabled'}>가족 공유 요약 만들기</button>
+      </div>
+      <div id="recShareOut"></div>`;
+    el.querySelectorAll('.recIn').forEach(inp => inp.addEventListener('change', () => { const f = curRec.fields[+inp.dataset.i]; if (f.value !== inp.value) { f.value = inp.value; f.edited = true; f.pending = false; } autoSave('수정 내용 자동 저장됨'); renderRecEditor(); }));
+    const ap = $('#recApprove'); if (ap) ap.addEventListener('click', () => { curRec.status = 'approved'; curRec.approvedAt = new Date().toISOString(); autoSave('승인 저장됨'); renderRecEditor(); });
+    const un = $('#recUnapprove'); if (un) un.addEventListener('click', () => { curRec.status = 'draft'; curRec.approvedAt = null; curRec.share = false; autoSave('승인 취소 저장됨'); renderRecEditor(); });
+    $('#recShare').addEventListener('click', () => {
+      const v = k => (curRec.fields.find(f => f.key === k) || {}).value || '';
+      const lines = [`${curRec.name} 님 ${curRec.date} 안부`, v('식사') && !/언급 없음|메모 없음/.test(v('식사')) ? `식사: ${v('식사')}` : '', v('특이사항') && v('특이사항') !== '없음' ? `담당자가 확인한 사항: ${v('특이사항')}` : '오늘 특별한 사항은 없었습니다.', '자세한 내용은 담당 기관에 문의해 주세요.'].filter(Boolean);
+      curRec.share = true; autoSave('공유 요약 저장됨');
+      $('#recShareOut').innerHTML = `<div class="quote" style="margin-top:8px">${lines.map(esc).join('<br>')}</div><p class="note">시연용입니다. 실제로 발송하지 않으며, 실제 서비스에서는 보호자 동의와 공유 권한을 확인한 뒤 보냅니다.</p>`;
+    });
+  }
+  function renderRecList() {
+    const el = $('#recList');
+    if (!memRecs.length) { el.innerHTML = '<p class="note">저장된 기록이 없습니다.</p>'; }
+    else el.innerHTML = `<table class="t"><thead><tr><th>날짜</th><th>대상</th><th>상태</th><th>확인 필요</th><th></th></tr></thead><tbody>${memRecs.map((r, i) => `<tr><td class="num">${esc(r.date)}</td><td>${esc(r.name)}</td><td>${r.status === 'approved' ? '<span class="chip l0">승인됨</span>' : '<span class="chip l1">초안</span>'}</td><td class="num">${r.fields.filter(f => f.pending || f.value === '미기재').length}</td><td><button class="btn ghost" type="button" data-open="${i}">열기</button></td></tr>`).join('')}</tbody></table>`;
+    el.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => { curRec = memRecs[+b.dataset.open]; recWho.value = curRec.pid; renderRecEditor(); }));
+    const keys = ['방문·관찰 시점', '제공한 지원', '식사', '수면', '불편감 표현', '복약 관련 관찰', '특이사항', '다음 확인사항', '센서 관찰 (링케어)', 'AI 대화 (링케어)'];
+    const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    const csv = ['날짜,대상(가명),상태,승인시각,' + keys.join(',') + ',메모 원문'].concat(memRecs.map(r => [r.date, r.name, r.status === 'approved' ? '승인' : '초안', r.approvedAt || ''].concat(keys.map(k => (r.fields.find(f => f.key === k) || {}).value || ''), [r.original]).map(q).join(','))).join('\n');
+    $('#recBox').value = csv;
+    const dl = $('#recDl'); if (dl) { try { dl.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' })); } catch (e) { dl.hidden = true; } }
+  }
+  function renderRecTab() { renderRecList(); renderRecEditor(); }
+  $('#recMake').addEventListener('click', makeRecord);
+  $('#recCopy').addEventListener('click', async () => { const b = $('#recBox'); try { await navigator.clipboard.writeText(b.value); $('#recMsg').textContent = '복사했습니다'; } catch (e) { b.focus(); b.select(); $('#recMsg').textContent = '선택했습니다. Ctrl+C로 복사하세요'; } });
+  $('#recClear').addEventListener('click', () => {
+    const btn = $('#recClear');
+    if (btn.dataset.confirm !== '1') { btn.dataset.confirm = '1'; btn.textContent = '정말 지울까요? 한 번 더 누르세요'; setTimeout(() => { btn.dataset.confirm = ''; btn.textContent = '저장 기록 지우기'; }, 4000); return; }
+    memRecs = []; saveRecs(); curRec = null; btn.dataset.confirm = ''; btn.textContent = '저장 기록 지우기'; $('#recMsg').textContent = '지웠습니다'; renderRecTab();
+  });
+
+  // ───── 실측 데이터 분석 ─────
+  // 하루 단위 CSV(date,steps): 평일·주말을 섞은 기준선과 나눈 기준선을 비교
+  function realDaily(rows, out) {
+    const by = {};
+    rows.forEach(c => { const m = c[0].trim().match(/(\d{4})[-./](\d{1,2})[-./](\d{1,2})/); if (m && !isNaN(+c[1])) by[`${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`] = +c[1]; });
+    const keys = Object.keys(by).sort();
+    if (keys.length < 30) { out.innerHTML = '<p class="note">하루 단위 분석에는 최소 30일 기록이 필요합니다.</p>'; return; }
+    const D = k => new Date(k + 'T00:00:00Z'), K = d => d.toISOString().slice(0, 10), add = (d, n) => new Date(d.getTime() + n * 864e5);
+    const wk = d => { const w = d.getUTCDay(); return w === 0 || w === 6; };
+    const med = a => { const s = a.slice().sort((x, y) => x - y), m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+    const last = D(keys[keys.length - 1]), first = add(last, -364);
+    const days = []; for (let d = new Date(Math.max(first, add(D(keys[0]), 15))); d <= last; d = add(d, 1)) days.push(d);
+    const mixed = d => { const h = []; for (let k = 1; k <= 14; k++) { const v = by[K(add(d, -k))]; if (v != null) h.push(v); } return h.length >= 7 ? med(h) : null; };
+    const split = d => { const h = []; for (let k = 1; k < 120 && h.length < 8; k++) { const x = add(d, -k); if (wk(x) === wk(d) && by[K(x)] != null) h.push(by[K(x)]); } return h.length >= 5 ? med(h) : null; };
+    const evalRule = f => { const fl = []; let n = 0; days.forEach(d => { const v = by[K(d)], b = f(d); if (v == null || b == null) return; n++; if (v < 0.5 * b) fl.push({ d: K(d), v, b, we: wk(d) }); }); return { n, fl }; };
+    const A = evalRule(mixed), B = evalRule(split);
+    const pct = (a, n) => (a / n * 100).toFixed(1) + '%';
+    const recent = days.slice(-90), flB = new Set(B.fl.map(x => x.d)), flA = new Set(A.fl.map(x => x.d));
+    const W = 760, H = 200, L = 48, T = 12, Bm = 26, mx = Math.max(...recent.map(d => by[K(d)] || 0)) * 1.08;
+    const X = i => L + (W - L - 12) * i / (recent.length - 1), Y = v => T + (H - T - Bm) * (1 - v / mx);
+    let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="최근 90일 걸음 수">`;
+    [0, 0.25, 0.5, 0.75, 1].forEach(f => { const v = mx * f; svg += `<line x1="${L}" x2="${W - 12}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--grid)"/><text x="${L - 6}" y="${Y(v) + 4}" text-anchor="end" font-size="11" fill="var(--muted)">${Math.round(v / 1000)}k</text>`; });
+    recent.forEach((d, i) => { const v = by[K(d)]; if (v == null) return; const c = flB.has(K(d)) ? 'var(--crisis)' : flA.has(K(d)) ? 'var(--warn)' : wk(d) ? 'var(--muted)' : 'var(--accent)'; svg += `<rect x="${X(i) - 3}" y="${Y(v)}" width="6" height="${Y(0) - Y(v)}" fill="${c}" opacity="0.85"/>`; if (i % 15 === 0) svg += `<text x="${X(i)}" y="${H - 8}" text-anchor="middle" font-size="11" fill="var(--muted)">${K(d).slice(5)}</text>`; });
+    svg += '</svg>';
+    out.innerHTML = `<p>하루 단위 기록 ${A.n}일 분석 (${esc(K(days[0]))} ~ ${esc(K(last))})</p>
+      <table class="t"><thead><tr><th>기준선</th><th>경보일</th><th>그중 주말</th></tr></thead><tbody>
+      <tr><td>평일·주말 섞은 최근 14일 중앙값의 50% 미만</td><td class="num">${A.fl.length}일 (${pct(A.fl.length, A.n)})</td><td class="num">${A.fl.filter(x => x.we).length}일</td></tr>
+      <tr><td>평일·주말을 나눈 최근 8일 중앙값의 50% 미만</td><td class="num">${B.fl.length}일 (${pct(B.fl.length, B.n)})</td><td class="num">${B.fl.filter(x => x.we).length}일</td></tr></tbody></table>
+      <div class="chart" style="margin-top:10px">${svg}</div>
+      <div class="legend"><span><i style="background:var(--accent)"></i>평일</span><span><i style="background:var(--muted)"></i>주말</span><span><i style="background:var(--warn)"></i>섞은 기준선만 경보</span><span><i style="background:var(--crisis)"></i>나눈 기준선도 경보</span></div>
+      <p class="note" style="margin-top:6px">최근 90일 막대입니다. 경보일의 실제 사유(아팠는지, 여행·휴일인지)는 이 화면이 알 수 없으므로 본인이 확인해야 합니다.</p>`;
+  }
+  $('#realSample').addEventListener('click', () => {
+    const lines = ['datetime,steps,heart_rate']; const r0 = (n) => Math.round(n);
+    let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let d = 1; d <= 15; d++) for (let h = 0; h < 24; h++) {
+      if (d === 15 && h > 15) break;
+      const sleep = h >= 22 || h < 6; let st = sleep ? r0(rnd() * 8) : r0(250 + rnd() * 250); let hr = sleep ? r0(58 + rnd() * 6) : r0(70 + rnd() * 10);
+      if (d === 15 && h >= 11) { st = r0(rnd() * 5); hr = r0(96 + rnd() * 6); }
+      lines.push(`2026-10-${String(d).padStart(2, '0')} ${String(h).padStart(2, '0')}:00,${st},${hr}`);
+    }
+    $('#realText').value = lines.join('\n');
+    $('#realOut').innerHTML = '<p class="note">예시는 형식을 보여주는 가상 데이터입니다(마지막 날 11시부터 정지·심박 상승). 실제 측정값으로 바꿔 넣으세요.</p>';
+  });
+  $('#realFile').addEventListener('change', ev => { const f = ev.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => { $('#realText').value = String(rd.result); }; rd.readAsText(f); });
+  $('#realGo').addEventListener('click', () => {
+    const out = $('#realOut');
+    const rows = $('#realText').value.trim().split(/\r?\n/).slice(1).map(l => l.split(/[,;\t]/)).filter(c => c.length >= 2);
+    if (rows.length && rows.every(c => /^\s*\d{4}[-./]\d{1,2}[-./]\d{1,2}\s*$/.test(c[0]))) { realDaily(rows, out); return; }
+    const by = {};
+    rows.forEach(c => {
+      const m = String(c[0]).match(/(\d{4})[-./](\d{1,2})[-./](\d{1,2})[ T](\d{1,2})/); if (!m) return;
+      const day = `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`, h = +m[4];
+      const k = day + '|' + h; by[k] = by[k] || { day, h, steps: 0, hrs: [] };
+      by[k].steps += +c[1] || 0; if (c[2] && !isNaN(+c[2]) && +c[2] > 0) by[k].hrs.push(+c[2]);
+    });
+    const days = [...new Set(Object.values(by).map(x => x.day))].sort();
+    if (days.length < 4) { out.innerHTML = '<p class="note">최소 4일 이상의 시간별 기록이 필요합니다. 첫 줄은 제목(datetime,steps,heart_rate)으로 두세요.</p>'; return; }
+    const last = days[days.length - 1], base = days.slice(-15, -1);
+    const conv = (x, di) => ({ day: di, h: x.h, steps: x.steps, hr: x.hrs.length ? Math.round(x.hrs.reduce((a, b) => a + b, 0) / x.hrs.length) : null, temp: null, worn: 1 });
+    const hist = []; base.forEach((d, di) => { for (let h = 0; h < 24; h++) { const x = by[d + '|' + h]; hist.push(x ? conv(x, di) : { day: di, h, steps: null, hr: null, temp: null, worn: 0 }); } });
+    const todayRows = []; for (let h = 0; h < 24; h++) { const x = by[last + '|' + h]; if (x) todayRows.push(conv(x, base.length)); }
+    const sl = +$('#realSleep').value || 22, wk = +$('#realWake').value || 6;
+    const pz = { id: 'real', name: '실측', sleep: [sl, wk] };
+    let res;
+    try { res = R.ringFlags(pz, { hist, today: todayRows }); } catch (e) { out.innerHTML = '<p class="note">데이터를 해석하지 못했습니다. 형식을 확인하세요.</p>'; return; }
+    const b = res.baseline, T = todayRows;
+    const band = key => ({ lo: T.map(s => Math.max(0, (b[s.h][key] || 0) - 2 * 1.4826 * (b[s.h][key + 'Mad'] || 0))), hi: T.map(s => (b[s.h][key] || 0) + 2 * 1.4826 * (b[s.h][key + 'Mad'] || 0)) });
+    out.innerHTML = `<p>기준선 ${base.length}일 · 오늘(${esc(last)}) ${T.length}시간 분석</p>
+      <ul class="plain">${res.flags.length ? res.flags.map(f => `<li><b>${esc(f.label)}</b></li>`).join('') : '<li>평소 범위 안에 있습니다.</li>'}</ul>
+      <div class="cols2" style="margin-top:8px"><div class="chart">${lineChart({ label: '실측 걸음', W: 380, H: 220, x: T.map(s => s.h + '시'), xEvery: 3, floor: 0, band: band('steps'), series: [{ values: T.map(s => s.steps), color: 'var(--accent)', dot: true }] })}</div>
+      <div class="chart">${T.some(s => s.hr) ? lineChart({ label: '실측 심박', W: 380, H: 220, x: T.map(s => s.h + '시'), xEvery: 3, band: band('hr'), series: [{ values: T.map(s => s.hr), color: 'var(--crisis)', dot: true }] }) : '<p class="note">심박 기록이 없습니다.</p>'}</div></div>
+      <p class="note">링 대신 휴대폰·워치 기록이라 손 움직임이 아닌 걸음 수 기준입니다. 판단은 같은 개인 기준선 규칙을 씁니다.</p>`;
+  });
+
+  // ───── 검증 ─────
+  let VAL = null;
+  function renderValidation() {
+    if (!VAL) VAL = R.runValidation(10);
+    const ED = R.evalDrafts();
+    $('#valDraft').innerHTML = `<p class="note">한국어·베트남어·영어·중국어 합성 메모 ${ED.n}건(제안자 예시 포함)에서 6개 항목(식사량, 불편감, 낙상, 피부, 복약 확인, 시점)을 정답과 비교합니다. 개발자가 만든 평가 세트라 실제 메모 성능을 뜻하지 않습니다.</p>
+      <table class="t"><thead><tr><th>지표</th><th>첫 측정 (규칙 수정 전)</th><th>현재</th></tr></thead><tbody>
+      <tr><td>항목 정확도</td><td class="num">96.5%</td><td class="num">${(ED.fieldAcc * 100).toFixed(1)}%</td></tr>
+      <tr><td>원문에 없는 사실 추가</td><td class="num">0건</td><td class="num">${ED.added}건</td></tr>
+      <tr><td>확인 필요 항목을 잘못 확정</td><td class="num">1건</td><td class="num">${ED.unhold}건</td></tr></tbody></table>
+      <p class="note" style="margin-top:6px">첫 측정에서 찾은 오류 3종(한국어 '드셨', 영어 식사 시점 표현, 베트남어 'chưa rõ')을 고친 뒤의 "현재" 값은 같은 세트로 잰 것이라 근거로 쓰지 않습니다.</p>`;
+    const c = VAL.cross, r = VAL.ringOnly, pct = x => (x * 100).toFixed(1) + '%';
+    const nH = R.PERSONAS.filter(p => R.settingOf(p) === 'home').length, nB = R.PERSONAS.length - nH;
+    const sH = R.SCENARIOS.filter(x => !x.setting).length, sB = R.SCENARIOS.length - sH;
+    $('#valMeta').innerHTML = `특성이 서로 다른 가상 인물 ${R.PERSONAS.length}명(재가 독거 ${nH}명 × ${sH}종, 요양병원 와상 ${nB}명 × ${sB}종)의 시나리오를 각 ${VAL.reps}회 반복한 <b class="num">${VAL.n}</b>개 사례를 자동으로 판단해 정답 라벨과 비교했습니다. 정답은 시나리오마다 미리 정한 값(위기 ${c.crises}건 포함)입니다. 합성 데이터 기반의 사전검증이며 실제 현장 성능이 아닙니다.`;
+    const tile = (k, oldV, newV, good) => `<div class="stat"><div class="k">${k}</div><div class="vs"><span class="old num">${oldV}</span><span class="v num" style="color:${good}">${newV}</span></div><div class="note">링 단독 → 교차검증</div></div>`;
+    $('#kpi').innerHTML =
+      tile('즉시 방문이 불필요했던 위기 경보', r.falseUrgent + '건', c.falseUrgent + '건', 'var(--ok)') +
+      tile('확인이 불필요했던 경보', r.falseAlert + '건', c.falseAlert + '건', 'var(--ok)') +
+      tile('위기 탐지율', pct(r.recallCrisis), pct(c.recallCrisis), 'var(--accent)') +
+      tile('정답 일치율', pct(r.accuracy), pct(c.accuracy), 'var(--accent)');
+    const bar = (v, col) => `<div class="bar" title="${pct(v)}"><span style="width:${v * 100}%;background:${col}"></span></div>`;
+    const bs = VAL.bySetting, sRow = (k, nm) => `<tr><td>${nm}</td><td class="num">${bs[k].n}</td><td class="num">${bs[k].ringOnly.falseUrgent} → ${bs[k].cross.falseUrgent}</td><td class="num">${bs[k].ringOnly.falseAlert} → ${bs[k].cross.falseAlert}</td><td class="num">${bs[k].cross.caught}/${bs[k].cross.crises}</td><td class="num">${pct(bs[k].ringOnly.accuracy)} → ${pct(bs[k].cross.accuracy)}</td></tr>`;
+    const per = R.PERSONAS.map(p => { const rs = VAL.rows.filter(x => x.persona === p.name); return { p, n: rs.length, ok: rs.filter(x => x.cross === x.truth).length, okR: rs.filter(x => x.ringOnly === x.truth).length }; });
+    $('#valPersona').innerHTML = `<table class="t"><thead><tr><th>가상 인물</th><th>특성</th><th>사례</th><th>정답 일치율 (링 단독 → 교차검증)</th></tr></thead><tbody>${per.map(x => `<tr><td>${esc(x.p.name)} <span class="tag ${R.settingOf(x.p)}">${R.settingOf(x.p) === 'bed' ? '요양병원' : '재가'}</span></td><td>${esc(x.p.note)}</td><td class="num">${x.n}</td><td class="num">${pct(x.okR / x.n)} → ${pct(x.ok / x.n)}</td></tr>`).join('')}</tbody></table>`;
+    $('#valSetting').innerHTML = `<table class="t"><thead><tr><th>대상</th><th>사례</th><th>불필요한 위기 경보</th><th>불필요한 확인 경보</th><th>위기 탐지(교차검증)</th><th>정답 일치율</th></tr></thead><tbody>${sRow('home', '재가 독거 어르신')}${sRow('bed', '요양병원 와상 환자')}</tbody></table><p class="note" style="margin-top:6px">화살표는 링 단독 → 교차검증입니다.</p>`;
+    $('#valTable').innerHTML = `<table class="t"><thead><tr><th>대상</th><th>시나리오</th><th>정답</th><th>링 단독 일치</th><th></th><th>교차검증 일치</th><th></th></tr></thead><tbody>
+      ${VAL.byScenario.map(s => `<tr><td><span class="tag ${s.setting}">${s.setting === 'bed' ? '요양병원' : '재가'}</span></td><td>${esc(s.scenario)}</td><td><span class="chip l${s.truth}">${LV[s.truth]}</span></td>
+        <td class="num">${pct(s.ringOnlyMatch)}</td><td style="width:14%">${bar(s.ringOnlyMatch, 'var(--muted)')}</td>
+        <td class="num">${pct(s.crossMatch)}</td><td style="width:14%">${bar(s.crossMatch, 'var(--accent)')}</td></tr>`).join('')}
+      </tbody></table>`;
+    const lines = ['구분,링 단독,교차검증',
+      `전체 사례 수,${VAL.n},${VAL.n}`,
+      `담당자 경보(주의+위기),${r.alerts},${c.alerts}`,
+      `즉시 방문 경보(위기),${r.urgent},${c.urgent}`,
+      `불필요한 즉시 방문 경보,${r.falseUrgent},${c.falseUrgent}`,
+      `확인이 불필요했던 경보,${r.falseAlert},${c.falseAlert}`,
+      `위기 탐지,${r.caught}/${r.crises},${c.caught}/${c.crises}`,
+      `위기 놓침,${r.missed},${c.missed}`,
+      `정답 일치율,${pct(r.accuracy)},${pct(c.accuracy)}`,
+      `요양병원 정답 일치율,${pct(bs.bed.ringOnly.accuracy)},${pct(bs.bed.cross.accuracy)}`,
+      `요양병원 위기 탐지,${bs.bed.ringOnly.caught}/${bs.bed.ringOnly.crises},${bs.bed.cross.caught}/${bs.bed.cross.crises}`];
+    const csv = lines.join('\n');
+    $('#csvBox').value = csv;
+    const full = 'setting,persona,scenario,truth,ring_only,cross\n' + VAL.rows.map(x => [x.setting, x.persona, x.scenario, x.truth, x.ringOnly, x.cross].join(',')).join('\n');
+    if ($('#csvDl')) try { $('#csvDl').href = URL.createObjectURL(new Blob(['﻿' + csv + '\n\n' + full], { type: 'text/csv' })); } catch (e) { const d = $('#csvDl'); if (d) d.hidden = true; }
+  }
+  $('#csvCopy').addEventListener('click', async () => {
+    const box = $('#csvBox');
+    try { await navigator.clipboard.writeText(box.value); $('#copyMsg').textContent = '복사했습니다'; }
+    catch (e) { box.focus(); box.select(); $('#copyMsg').textContent = '선택했습니다. Ctrl+C로 복사하세요'; }
+  });
+
+  renderDash();
+})();
+</script>

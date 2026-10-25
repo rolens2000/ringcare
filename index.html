@@ -1,0 +1,1420 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="AI 링케어: 스마트링 생체신호와 AI 안부대화를 교차검증하는 독거 어르신 돌봄 시제품">
+</head>
+<body>
+<title>AI 링케어 시제품</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: 돌봄 관제 콘솔 — 위험도순 목록(좌) + 선택한 어르신의 근거 패널(우), 좁은 화면에서는 위아래로 */
+:root {
+  --bg: #F3F5F6; --surface: #FFFFFF; --sunk: #E9EDEF; --line: #D5DCDF;
+  --ink: #18252B; --muted: #5A6A71; --accent: #136C72; --accent-soft: #DCEFEF;
+  --crisis: #C2362F; --crisis-soft: #FBE6E4; --warn: #B76A00; --warn-soft: #FCEFD9;
+  --ok: #2F7D4F; --ok-soft: #E1F2E7; --band: rgba(19,108,114,.13); --grid: #E3E8EA;
+  --f-body: 'IBM Plex Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --f-data: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0F1619; --surface: #172126; --sunk: #1E2A30; --line: #2C3B42;
+  --ink: #E4ECEE; --muted: #96A7AE; --accent: #5CC2C6; --accent-soft: #173A3D;
+  --crisis: #F07A72; --crisis-soft: #3A1D1C; --warn: #E8A64A; --warn-soft: #3A2A12;
+  --ok: #6CC791; --ok-soft: #173123; --band: rgba(92,194,198,.16); --grid: #24323A; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0F1619; --surface: #172126; --sunk: #1E2A30; --line: #2C3B42;
+  --ink: #E4ECEE; --muted: #96A7AE; --accent: #5CC2C6; --accent-soft: #173A3D;
+  --crisis: #F07A72; --crisis-soft: #3A1D1C; --warn: #E8A64A; --warn-soft: #3A2A12;
+  --ok: #6CC791; --ok-soft: #173123; --band: rgba(92,194,198,.16); --grid: #24323A; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.55; margin: 0; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-inline: 16px; padding-block: 16px 48px; }
+header.top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding-block: 8px 14px; }
+.brand { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.brand h1 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+.brand .sub { color: var(--muted); font-size: 13px; }
+.badges { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+.badge { font-size: 12px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); background: var(--surface); white-space: nowrap; }
+.badge.ai-on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+nav.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); overflow-x: auto; margin-bottom: 18px; }
+nav.tabs button { font: inherit; font-size: 14px; background: none; border: 0; padding: 10px 14px; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; }
+nav.tabs button[aria-selected="true"] { color: var(--ink); font-weight: 600; border-bottom-color: var(--accent); }
+nav.tabs button:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.note { font-size: 13px; color: var(--muted); }
+h2 { font-size: 18px; margin: 0 0 4px; text-wrap: balance; }
+h3 { font-size: 15px; margin: 0 0 8px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; }
+.btn { font: inherit; font-size: 14px; border: 1px solid var(--accent); background: var(--accent); color: var(--surface); padding: 8px 14px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+select, textarea, input[type=text] { font: inherit; font-size: 14px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; max-width: 100%; }
+.num { font-family: var(--f-data); font-variant-numeric: tabular-nums; }
+
+/* summary strip */
+.strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.stat .k { font-size: 12px; color: var(--muted); letter-spacing: .02em; }
+.stat .v { font-size: 22px; font-weight: 700; }
+.stat .v small { font-size: 13px; font-weight: 500; color: var(--muted); }
+
+/* console */
+.console { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 16px; align-items: start; }
+.list { display: flex; flex-direction: column; gap: 10px; }
+.elder { background: var(--surface); border: 1px solid var(--line); border-left-width: 5px; border-radius: 10px; padding: 12px 14px; cursor: pointer; text-align: left; font: inherit; color: inherit; width: 100%; }
+.elder[data-level="2"] { border-left-color: var(--crisis); }
+.elder[data-level="1"] { border-left-color: var(--warn); }
+.elder[data-level="0"] { border-left-color: var(--ok); }
+.elder[aria-current="true"] { box-shadow: 0 0 0 2px var(--accent); }
+.elder .row1 { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.elder .nm { font-weight: 600; font-size: 16px; }
+.elder .meta { font-size: 12px; color: var(--muted); }
+.recIn { width: 100%; }
+table.rec td { vertical-align: top; }
+.filter { display: flex; gap: 6px; flex-wrap: wrap; }
+.filter button { font: inherit; font-size: 13px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); cursor: pointer; }
+.filter button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+.tag { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 4px; margin-right: 4px; background: var(--sunk); color: var(--muted); }
+.tag.bed { background: var(--accent-soft); color: var(--accent); }
+.elder .why { font-size: 13px; margin-top: 6px; color: var(--ink); }
+.chip { font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+.chip.l2 { background: var(--crisis-soft); color: var(--crisis); }
+.chip.l1 { background: var(--warn-soft); color: var(--warn); }
+.chip.l0 { background: var(--ok-soft); color: var(--ok); }
+.scenario { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+.scenario label { font-size: 11px; color: var(--muted); letter-spacing: .03em; }
+.scenario select { width: 100%; }
+
+.detail { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.verdict { border-radius: 10px; padding: 14px 16px; border: 1px solid var(--line); }
+.verdict.l2 { background: var(--crisis-soft); border-color: var(--crisis); }
+.verdict.l1 { background: var(--warn-soft); border-color: var(--warn); }
+.verdict.l0 { background: var(--ok-soft); border-color: var(--ok); }
+.verdict .head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.verdict .title { font-size: 20px; font-weight: 700; }
+.cols2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+ul.plain { margin: 0; padding-left: 18px; }
+ul.plain li { margin: 2px 0; font-size: 14px; }
+.chart { width: 100%; overflow-x: auto; }
+.chart svg { display: block; width: 100%; height: auto; min-width: 280px; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 4px; }
+.legend i { display: inline-block; width: 14px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+.quote { background: var(--sunk); border-radius: 8px; padding: 8px 12px; font-size: 14px; margin-top: 6px; }
+table.t { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.t th, table.t td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.t th { font-size: 12px; color: var(--muted); font-weight: 600; letter-spacing: .02em; }
+.tscroll { overflow-x: auto; }
+
+/* chat */
+.chatwrap { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.bubbles { display: flex; flex-direction: column; gap: 8px; min-height: 260px; max-height: 460px; overflow-y: auto; padding: 4px; }
+.bub { max-width: 85%; padding: 9px 12px; border-radius: 12px; font-size: 15px; }
+.bub.ai { background: var(--accent-soft); align-self: flex-start; border-bottom-left-radius: 3px; }
+.bub.me { background: var(--sunk); align-self: flex-end; border-bottom-right-radius: 3px; }
+.bub .m { display: block; font-size: 11px; color: var(--muted); margin-top: 3px; }
+.ctl { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+.ctl input[type=text] { flex: 1 1 200px; min-width: 0; }
+.mic { font-size: 13px; color: var(--muted); }
+.mic.live { color: var(--crisis); font-weight: 600; }
+
+/* bars */
+.bar { height: 8px; background: var(--sunk); border-radius: 4px; overflow: hidden; min-width: 60px; }
+.bar > span { display: block; height: 100%; }
+.kpi { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.kpi .stat .v { font-size: 20px; }
+.vs { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.vs .old { color: var(--muted); text-decoration: line-through; font-size: 15px; }
+.prose p { margin: 0 0 10px; max-width: 70ch; }
+.arch { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.arch .panel h3 { color: var(--accent); }
+.hidden-sr { position: absolute; left: -9999px; }
+
+@media (max-width: 860px) {
+  .console, .chatwrap { grid-template-columns: minmax(0, 1fr); }
+  .strip, .kpi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cols2, .arch { grid-template-columns: minmax(0, 1fr); }
+  .badges { margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>AI 링케어</h1>
+      <span class="sub">독거 어르신 · 요양병원 와상 환자 위기·인지변화 교차검증 돌봄 콘솔</span>
+    </div>
+    <div class="badges">
+      <span class="badge">시제품(PoC) · 가상 인물·합성 데이터</span>
+      <span class="badge" id="aiBadge">기본 분석 모드</span>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="화면">
+    <button role="tab" id="t-dash" aria-selected="true" data-tab="dash">돌봄 대시보드</button>
+    <button role="tab" id="t-call" aria-selected="false" data-tab="call">AI 안부대화</button>
+    <button role="tab" id="t-memo" aria-selected="false" data-tab="memo">케어브릿지 메모</button>
+    <button role="tab" id="t-rec" aria-selected="false" data-tab="rec">돌봄 기록</button>
+    <button role="tab" id="t-val" aria-selected="false" data-tab="val">검증 결과</button>
+    <button role="tab" id="t-about" aria-selected="false" data-tab="about">서비스 소개</button>
+  </nav>
+
+  <!-- 대시보드 -->
+  <section id="p-dash" role="tabpanel" aria-labelledby="t-dash">
+    <div class="strip" id="strip"></div>
+    <div class="console">
+      <div class="list" id="list" aria-label="위험도순 어르신 목록"></div>
+      <div class="detail" id="detail"></div>
+    </div>
+  </section>
+
+  <!-- 안부대화 -->
+  <section id="p-call" role="tabpanel" aria-labelledby="t-call" hidden>
+    <div class="chatwrap">
+      <div class="panel">
+        <h2>AI 안부대화 체험</h2>
+        <p class="note">AI가 네 가지를 묻습니다. 어르신이 된 것처럼 말로 답하거나(크롬·엣지 권장) 글로 입력하세요. 대화가 끝나면 선택한 어르신의 오늘 링 신호와 합쳐 위험도를 다시 판단합니다.</p>
+        <div class="ctl">
+          <label for="callWho" class="note">대상</label>
+          <select id="callWho"></select>
+          <button class="btn" id="callStart">대화 시작</button>
+          <span class="mic" id="micState"></span>
+        </div>
+        <div class="bubbles" id="bubbles" aria-live="polite"></div>
+        <form class="ctl" id="typeForm">
+          <label for="typeIn" class="hidden-sr">답변 입력</label>
+          <input type="text" id="typeIn" placeholder="말이 안 되면 여기에 답을 입력하세요" disabled>
+          <button class="btn ghost" id="typeSend" type="submit" disabled>보내기</button>
+          <button class="btn ghost" id="micBtn" type="button" disabled>말로 답하기</button>
+        </form>
+      </div>
+      <div class="panel" id="callResult">
+        <h2>대화 분석</h2>
+        <p class="note">대화를 마치면 응답 시간, 말 속도, 감지된 위험 신호, 교차검증 결과가 여기에 표시됩니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 케어브릿지 -->
+  <section id="p-memo" role="tabpanel" aria-labelledby="t-memo" hidden>
+    <div class="cols2">
+      <div class="panel">
+        <h2>관찰 메모 → 한국어 기록 초안</h2>
+        <p class="note">요양보호사가 한국어나 모국어로 짧게 쓴 메모를 8개 기록 항목으로 정리합니다. 메모에 없는 시점·섭취량·복약 여부는 채우지 않고 "미기재"로 남겨 담당자가 확인하게 합니다. 실제 이름·연락처는 넣지 마세요.</p>
+        <div class="ctl">
+          <button class="btn ghost" type="button" data-sample="ko">한국어 예시</button>
+          <button class="btn ghost" type="button" data-sample="vi">베트남어 예시</button>
+          <button class="btn ghost" type="button" data-sample="en">영어 예시</button>
+          <button class="btn ghost" type="button" data-sample="zh">중국어 예시</button>
+        </div>
+        <label for="memoIn" class="hidden-sr">관찰메모</label>
+        <textarea id="memoIn" rows="6" style="width:100%;margin-top:10px"></textarea>
+        <div class="ctl">
+          <label for="dictLang" class="note">받아쓰기 언어</label>
+          <select id="dictLang">
+            <option value="ko-KR">한국어</option><option value="vi-VN">베트남어</option><option value="en-US">영어</option><option value="zh-CN">중국어</option>
+            <option value="ne-NP">네팔어</option><option value="id-ID">인도네시아어</option><option value="uz-UZ">우즈베크어</option>
+          </select>
+          <button class="btn ghost" id="dictBtn" type="button">말로 메모하기</button>
+          <span class="mic" id="dictState"></span>
+        </div>
+        <p class="note" style="margin-top:4px">받아쓰기는 누를 때만 작동하며 녹음 파일을 만들거나 저장하지 않습니다(상시 녹음 없음).</p>
+        <div class="ctl">
+          <button class="btn" id="memoGo" type="button">기록 초안 만들기</button>
+          <label for="memoWho" class="note">대상 어르신</label>
+          <select id="memoWho"></select>
+        </div>
+        <div class="ctl">
+          <button class="btn ghost" id="memoApply" type="button" disabled>대시보드에 반영</button>
+          <button class="btn ghost" id="memoToRec" type="button" disabled>돌봄 기록으로 보내기</button>
+        </div>
+      </div>
+      <div class="panel" id="memoOut">
+        <h2>기록 초안</h2>
+        <p class="note">왼쪽에서 메모를 넣고 "기록 초안 만들기"를 누르면 항목별 초안과 근거 원문, 다음 확인사항이 여기에 나옵니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 돌봄 기록 -->
+  <section id="p-rec" role="tabpanel" aria-labelledby="t-rec" hidden>
+    <div class="panel" style="margin-bottom:14px">
+      <h2>돌봄 기록 자동 작성·저장</h2>
+      <p class="note">링 센서 관찰, AI 대화, 요양보호사 메모를 출처별로 모아 오늘 기록 초안을 만듭니다. 담당자가 고치고 승인해야 확정되며, 가족 공유는 승인 뒤에만 열립니다. 장기요양급여제공기록지를 대체하거나 공단에 자동 입력하지 않습니다.</p>
+      <div class="ctl">
+        <label for="recWho" class="note">대상 어르신</label>
+        <select id="recWho"></select>
+        <button class="btn" id="recMake" type="button">오늘 기록 초안 만들기</button>
+        <span class="note" id="recSaveState"></span>
+      </div>
+    </div>
+    <div class="panel" id="recEditor"><p class="note">대상을 고르고 "오늘 기록 초안 만들기"를 누르세요.</p></div>
+    <div class="panel" style="margin-top:14px">
+      <h3>저장된 기록</h3>
+      <p class="note">이 브라우저에만 저장됩니다(서버 전송 없음). 기관 시스템으로 옮길 때는 내보내기를 쓰세요.</p>
+      <div class="tscroll" id="recList"></div>
+      <div class="ctl">
+        <button class="btn ghost" id="recCopy" type="button">기록 내보내기(복사)</button>
+        <a class="btn ghost" id="recDl" href="#" download="ringcare_records.csv">CSV 내려받기</a>
+        <button class="btn ghost" id="recClear" type="button">저장 기록 지우기</button>
+        <span class="note" id="recMsg"></span>
+      </div>
+      <textarea id="recBox" rows="4" style="width:100%;margin-top:8px" readonly aria-label="기록 내보내기"></textarea>
+    </div>
+  </section>
+
+  <!-- 검증 -->
+  <section id="p-val" role="tabpanel" aria-labelledby="t-val" hidden>
+    <div class="panel" style="margin-bottom:14px">
+      <h2>사전검증(Pre-R&amp;D): 링 단독 판단 vs 교차검증</h2>
+      <p class="note" id="valMeta"></p>
+    </div>
+    <div class="kpi" id="kpi"></div>
+    <div class="panel" style="margin-top:14px">
+      <h3>대상별 결과</h3>
+      <div class="tscroll" id="valSetting"></div>
+    </div>
+    <div class="panel" style="margin-top:14px">
+      <h3>가상 인물별 결과</h3>
+      <div class="tscroll" id="valPersona"></div>
+    </div>
+    <div class="panel" style="margin-top:14px">
+      <h3>시나리오별 정답 일치율</h3>
+      <div class="tscroll" id="valTable"></div>
+    </div>
+    <div class="panel" style="margin-top:14px">
+      <h3>기록 초안 평가 (합성 메모 24건 · 4개 언어)</h3>
+      <div class="tscroll" id="valDraft"></div>
+    </div>
+    <div class="panel" style="margin-top:14px">
+      <h3>실측 데이터로 확인하기</h3>
+      <p class="note">휴대폰·스마트워치 건강 앱에서 내보낸 기록을 CSV(시각, 걸음 수, 심박)로 올리면 같은 개인 기준선 규칙으로 분석합니다. 마지막 날을 "오늘"로 보고 이전 날(최대 14일)을 기준선으로 씁니다. 파일은 서버로 보내지 않고 이 브라우저에서만 처리합니다.</p>
+      <div class="ctl">
+        <input type="file" id="realFile" accept=".csv,text/csv" aria-label="실측 CSV 파일">
+        <label for="realSleep" class="note">취침</label><input type="text" id="realSleep" value="22" size="2" aria-label="취침 시각">
+        <label for="realWake" class="note">기상</label><input type="text" id="realWake" value="6" size="2" aria-label="기상 시각">
+        <button class="btn ghost" id="realSample" type="button">예시 CSV 넣기</button>
+      </div>
+      <textarea id="realText" rows="3" style="width:100%;margin-top:8px" placeholder="datetime,steps,heart_rate&#10;2026-10-01 08:00,320,74" aria-label="실측 CSV 내용"></textarea>
+      <div class="ctl"><button class="btn" id="realGo" type="button">실측 데이터 분석</button></div>
+      <div id="realOut"></div>
+    </div>
+    <div class="panel" style="margin-top:14px">
+      <h3>결과 데이터</h3>
+      <p class="note">모든 수치는 합성 시나리오 기반 사전검증 결과이며 실제 현장 성능이 아닙니다.</p>
+      <div class="ctl">
+        <button class="btn ghost" id="csvCopy" type="button">요약 결과 복사</button>
+        <a class="btn ghost" id="csvDl" href="#" download="ringcare_validation.csv">CSV 내려받기</a>
+        <span class="note" id="copyMsg"></span>
+      </div>
+      <textarea id="csvBox" rows="5" style="width:100%;margin-top:8px" readonly aria-label="요약 결과"></textarea>
+    </div>
+  </section>
+
+  <!-- 소개 -->
+  <section id="p-about" role="tabpanel" aria-labelledby="t-about" hidden>
+    <div class="panel prose" style="margin-bottom:14px">
+      <h2>무엇을 해결하나요</h2>
+      <p>혼자 사는 어르신의 위기는 조용히 진행됩니다. 기존 활동감지 센서는 "움직임이 있는가" 하나만 보기 때문에, 낮잠이나 충전 중 미착용에도 경보가 울리고 담당자는 매번 확인하러 가야 합니다.</p>
+      <p>요양병원에 누워 지내는 와상 환자도 같은 문제를 겪습니다. 움직이지 않는 것이 평소 모습이라 활동감지로는 위기를 구분할 수 없고, 야간에는 간병 인력이 적으며, 외국인 간병인의 관찰 내용이 언어 때문에 기록에서 빠지기 쉽습니다. 링케어는 와상 환자에게는 '움직임이 있는가' 대신 '2시간 체위 변경이 실제로 이뤄졌는가', '발열과 심박이 함께 오르는가', '새벽에 침상을 벗어나려 하는가'를 봅니다.</p>
+      <p>메모 기능은 아이디어 챌린지 후보작 「케어브릿지」의 원칙을 따릅니다. 요양보호사의 짧은 메모를 한국어 기록 초안으로 정리하되 원문을 함께 보여주고, 메모에 없는 내용은 채우지 않고 확인 항목으로 남기며, 진단이나 건강위험 판정은 하지 않고, 가족 공유는 담당자 승인 뒤에만 엽니다. 케어브릿지 연계 범위는 재가·요양시설·교육기관이며, 요양병원 와상 환자 모드는 케어브릿지 범위 밖에서 링케어가 자체적으로 확장한 기능입니다.</p>
+      <p>AI 링케어는 몸의 신호(스마트링), 말의 신호(AI 안부대화), 기록의 신호(외국인 돌봄인력 메모)를 한 엔진에서 교차검증합니다. 링이 멈췄어도 전화에 평소처럼 답하면 경보를 거르고, 링이 멈췄는데 전화도 받지 않으면 즉시 방문을 요청합니다.</p>
+    </div>
+    <div class="arch">
+      <div class="panel"><h3>몸의 신호</h3><p class="note">스마트링의 심박·걸음·피부온도·착용 여부를 어르신별 최근 14일 시간대 기준선과 비교합니다.</p></div>
+      <div class="panel"><h3>말의 신호</h3><p class="note">AI가 식사·수면·기분·통증을 묻고, 응답 여부·위험 표현·말 속도·응답 지연을 기록합니다.</p></div>
+      <div class="panel"><h3>기록의 신호</h3><p class="note">케어브릿지 연계: 외국인 요양보호사의 모국어 메모를 한국어 항목으로 정리해 판단에 넣습니다.</p></div>
+    </div>
+    <div class="panel prose" style="margin-top:14px">
+      <h3>이 시제품의 범위와 원칙</h3>
+      <ul class="plain">
+        <li>모든 인물은 가명이며 데이터는 합성 데이터입니다. 실제 어르신의 건강·음성 정보는 수집하지 않았습니다.</li>
+        <li>인지 추세는 의료적 진단이 아니며, 치매안심센터 선별검사를 안내하는 참고 신호로만 씁니다.</li>
+        <li>AI는 우선순위를 제안할 뿐이고, 출동과 의료 연계 결정은 담당자가 합니다. 요양병원에서는 담당 간호사와 의사가 판단합니다.</li>
+        <li>야간 초조·침상 이탈 신호는 관찰을 늘리는 데 쓰며, 신체보호대 사용을 권하지 않습니다. 신체보호대는 의료법 시행규칙의 사용 기준에 따른 최후 수단입니다.</li>
+        <li>실시간 링 연동과 실제 전화 발신은 후속 개발 범위입니다. 이 시제품은 판단 로직의 실현 가능성을 검증합니다.</li>
+        <li>보건복지부 응급안전안심서비스·노인맞춤돌봄서비스의 고도화 모듈로 쓰이도록 설계했습니다.</li>
+      </ul>
+    </div>
+  </section>
+</div>
+
+<script>
+/* AI 링케어 시제품 - 핵심 로직 (합성 데이터 · 개인 기준선 · 교차검증 판단 · 자동 검증)
+ * 모든 데이터는 가상 인물의 합성 데이터입니다. 실제 개인정보를 사용하지 않습니다.
+ */
+(function (root) {
+  'use strict';
+
+  // ───── 재현 가능한 난수 ─────
+  function rng(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function gauss(r) { // Box-Muller
+    let u = 0, v = 0;
+    while (u === 0) u = r();
+    while (v === 0) v = r();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+  function median(a) {
+    const s = a.slice().sort((x, y) => x - y), m = Math.floor(s.length / 2);
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  }
+  function mad(a) { const m = median(a); return median(a.map(x => Math.abs(x - m))); }
+
+  // ───── 가상 어르신 (가명) ─────
+  const PERSONAS = [
+    { id: 'kim', name: '김순자', age: 84, sex: '여', note: '고혈압 · 자녀는 서울 거주', sleep: [22, 6], hrSleep: 58, hrAwake: 72, steps: 260, temp: 33.4, charge: 19 },
+    { id: 'park', name: '박만수', age: 79, sex: '남', note: '당뇨 · 배우자 사별 2년', sleep: [23, 6], hrSleep: 61, hrAwake: 76, steps: 340, temp: 33.1, charge: 20 },
+    { id: 'lee', name: '이옥분', age: 87, sex: '여', note: '무릎 관절염 · 외국인 요양보호사 주 3회 방문', sleep: [21, 6], hrSleep: 56, hrAwake: 70, steps: 150, temp: 33.6, charge: 18 },
+    { id: 'choi', name: '최영식', age: 91, sex: '남', note: '심방세동 병력(심박 변동 큼) · 보청기 사용', sleep: [22, 6], hrSleep: 64, hrAwake: 78, hrSd: 6, steps: 200, temp: 33.2, charge: 21 },
+    { id: 'han', name: '한정자', age: 76, sex: '여', note: '활동적 · 늦게 잠듦 · 경로당 매일 이용', sleep: [0, 7], hrSleep: 60, hrAwake: 74, steps: 520, temp: 33.3, charge: 20 },
+    { id: 'yoon', name: '윤말순', age: 82, sex: '여', note: '보행보조기 사용 · 활동 적음 · 일찍 잠듦', sleep: [20, 5], hrSleep: 57, hrAwake: 69, steps: 90, temp: 33.5, charge: 18 },
+    { id: 'jung', setting: 'bed', name: '정복순', age: 88, sex: '여', note: '요양병원 입원 · 뇌졸중 후 와상 · 외국인 간병인 담당', sleep: [21, 6], hrSleep: 62, hrAwake: 74, steps: 60, stepsSleep: 12, turn: 95, temp: 33.8, charge: 19 },
+    { id: 'song', setting: 'bed', name: '송기철', age: 84, sex: '남', note: '요양병원 입원 · 파킨슨병(손 떨림으로 움직임 변동 큼)', sleep: [21, 6], hrSleep: 63, hrAwake: 75, steps: 110, stepsSleep: 30, mvSd: 0.45, turn: 95, temp: 33.5, charge: 19 },
+    { id: 'kang', setting: 'bed', nonverbal: true, name: '강영애', age: 92, sex: '여', note: '요양병원 입원 · 중증 치매 · 언어 소통 어려움', sleep: [20, 6], hrSleep: 60, hrAwake: 70, steps: 45, stepsSleep: 10, turn: 95, temp: 33.9, charge: 19 },
+    { id: 'oh', setting: 'bed', name: '오순덕', age: 86, sex: '여', note: '요양병원 입원 · 고관절 골절 수술 후 와상 · 밤잠 짧음', sleep: [22, 5], hrSleep: 66, hrAwake: 79, steps: 70, stepsSleep: 15, turn: 95, temp: 33.6, charge: 19 },
+  ];
+  const settingOf = p => p.setting || 'home';
+
+  // ───── 시나리오 (정답 라벨 포함) ─────
+  // truth: 0=안정(담당자 확인 불필요) 1=주의(당일 확인) 2=위기(즉시 방문)
+  const SCENARIOS = [
+    // ── 재가 독거 어르신 ──
+    { id: 'normal', name: '평범한 하루', truth: 0, call: { answered: true, text: '네 아침 잘 먹었어요. 잠도 괜찮게 잤어요.' } },
+    { id: 'nap', name: '오후 낮잠 (3~4시간 정지)', truth: 0, inactive: [11, 15], call: { answered: true, text: '아이고 낮잠 좀 잤어요. 괜찮아요.' } },
+    { id: 'fall', name: '낙상 의심 (정지 + 심박 상승 + 무응답)', truth: 2, inactive: [11, 15], hrUp: [11, 15, 26], call: { answered: false } },
+    { id: 'charge_ok', name: '링 충전 잊음 (미착용 + 정상 응답)', truth: 0, off: [9, 15], call: { answered: true, text: '반지를 깜빡하고 안 꼈네요. 별일 없어요.' } },
+    { id: 'off_noans', name: '링 미착용 장기화 + 무응답', truth: 2, off: [9, 15], call: { answered: false } },
+    { id: 'pain', name: '링 정상 + 통증 호소', truth: 1, call: { answered: true, text: '허리가 너무 아프고 아침부터 좀 어지러워요.' } },
+    { id: 'night', name: '새벽 배회 (밤 활동 증가)', truth: 1, nightWalk: [1, 4], call: { answered: true, text: '밤에 잠이 안 와서 왔다 갔다 했어요.' } },
+    { id: 'outing', name: '외출 (첫 통화 부재 → 재통화 응답)', truth: 0, active: [9, 13], call: { answered: true, retry: true, text: '시장 다녀왔어요. 전화를 못 들었네.' } },
+    { id: 'mood', name: '정서 저하 (외로움·식욕 저하 + 활동 감소)', truth: 1, lowActive: true, call: { answered: true, text: '입맛도 없고 그냥 외로워요. 아무것도 하기 싫어요.' } },
+    { id: 'fever', name: '발열 의심 (피부온도 상승)', truth: 1, tempUp: [8, 15, 1.6], call: { answered: true, text: '몸이 좀 으슬으슬해요.' } },
+    { id: 'memo', name: '케어브릿지 메모 위험 (링·통화 정상)', truth: 1, memo: 'Hôm nay bà không ăn sáng, từ chối ăn trưa. Đầu gối bị bầm, có thể đã ngã.', call: { answered: true, text: '괜찮아요 괜찮아.' } },
+    { id: 'tachy', name: '심박 이상 지속 + 무응답', truth: 2, hrUp: [12, 15, 34], call: { answered: false } },
+    // ── 요양병원 와상 환자 (침상 옆 스피커 대화 · 외국인 간병인 메모) ──
+    { id: 'bed_normal', setting: 'bed', name: '병상 평범한 하루', truth: 0, call: { answered: true, text: '네… 괜찮아요.' } },
+    { id: 'bed_turn', setting: 'bed', name: '체위 변경 지연 (5시간 움직임 없음)', truth: 1, noTurn: [10, 15], call: { answered: true, text: '그냥 그래요.' } },
+    { id: 'bed_mismatch', setting: 'bed', name: '간병기록-센서 불일치 (체위 변경 기록 vs 움직임 없음)', truth: 1, noTurn: [10, 15], memo: 'Đã trở mình cho bà lúc 10 giờ, 12 giờ và 14 giờ. Bà ăn được nửa suất.', call: { answered: true, text: '네.' } },
+    { id: 'bed_sepsis', setting: 'bed', name: '발열 + 빈맥 + 반응 저하', truth: 2, tempUp: [10, 15, 1.7], hrUp: [11, 15, 24], memo: 'Bà ho nhiều, có đờm, ngủ li bì.', call: { answered: false } },
+    { id: 'bed_fever', setting: 'bed', name: '미열 (피부온도 상승만)', truth: 1, tempUp: [9, 15, 1.5], call: { answered: true, text: '좀 더워요.' } },
+    { id: 'bed_agit', setting: 'bed', name: '야간 초조 (새벽 움직임·심박 증가)', truth: 1, nightAgit: [1, 4], call: { answered: true, text: '밤에 무서웠어요.' } },
+    { id: 'bed_exit', setting: 'bed', name: '침상 이탈 시도 의심 (새벽 급격한 움직임)', truth: 2, bedExit: 3, call: { na: true } },
+    { id: 'bed_skin', setting: 'bed', name: '피부 발적 메모 (센서 정상)', truth: 1, memo: 'Vùng xương cụt bị đỏ, ấn không mất màu.', call: { answered: true, text: '엉덩이가 좀 아파요.' } },
+    { id: 'bed_visit', setting: 'bed', name: '가족 면회 (낮 움직임·심박 소폭 증가)', truth: 0, active: [13, 15], hrUp: [13, 15, 6], call: { answered: true, text: '딸이 와서 좋았어요.' } },
+  ];
+  const scenariosFor = p => SCENARIOS.filter(s => (s.setting || 'home') === settingOf(p));
+
+  const NOW = 15; // 시연 기준 시각 15시 (오늘 0~15시 데이터)
+
+  function isSleepHour(p, h) { const [s, e] = p.sleep; return s > e ? (h >= s || h < e) : (h >= s && h < e); }
+
+  function hourSample(p, h, r, day) {
+    const sleep = isSleepHour(p, h);
+    if (settingOf(p) === 'bed') {
+      // 와상 환자: 손 움직임 횟수/시간. 간병인이 2시간마다 체위 변경(짝수 시) → 움직임 급증
+      let mv = Math.max(0, (sleep ? p.stepsSleep : p.steps) * (1 + (p.mvSd || 0.3) * gauss(r)));
+      if (h % 2 === 0) mv += p.turn * (0.8 + 0.4 * r());
+      const hr0 = (sleep ? p.hrSleep : p.hrAwake) + gauss(r) * (p.hrSd || 3);
+      const tp = p.temp + (sleep ? 0.2 : 0) + gauss(r) * 0.2;
+      return { day, h, steps: Math.round(mv), hr: Math.round(hr0), temp: +tp.toFixed(1), worn: h === p.charge ? 0 : 1 };
+    }
+    const meal = (h === 8 || h === 12 || h === 18) ? 1.5 : 1;
+    let steps = sleep ? Math.max(0, gauss(r) * 4) : Math.max(0, p.steps * meal * (1 + 0.25 * gauss(r)));
+    let hr = (sleep ? p.hrSleep : p.hrAwake) + gauss(r) * (p.hrSd || 3);
+    let temp = p.temp + (sleep ? 0.3 : 0) + gauss(r) * 0.25;
+    let worn = (h === p.charge) ? 0 : 1;
+    return { day, h, steps: Math.round(steps), hr: Math.round(hr), temp: +temp.toFixed(1), worn };
+  }
+
+  // 14일 기준선 + 오늘(0~NOW시) 데이터
+  function generate(p, scenario, seed) {
+    const r = rng(seed);
+    const hist = [];
+    for (let d = 0; d < 14; d++) for (let h = 0; h < 24; h++) hist.push(hourSample(p, h, r, d));
+    const today = [];
+    for (let h = 0; h <= NOW; h++) {
+      const s = hourSample(p, h, r, 14);
+      const inRange = (rg) => rg && h >= rg[0] && h <= rg[1];
+      if (inRange(scenario.inactive)) s.steps = Math.round(Math.max(0, gauss(r) * 3));
+      if (inRange(scenario.hrUp)) s.hr = Math.round(p.hrAwake + scenario.hrUp[2] + gauss(r) * (p.hrSd || 3));
+      if (inRange(scenario.noTurn)) s.steps = Math.round(Math.max(0, 5 + gauss(r) * 3));
+      if (inRange(scenario.nightAgit)) { s.steps = Math.round(110 + gauss(r) * 20); s.hr = Math.round(p.hrSleep + 12 + gauss(r) * 3); }
+      if (scenario.bedExit === h) { s.steps = Math.round(600 + gauss(r) * 60); s.hr = Math.round(p.hrSleep + 22 + gauss(r) * 3); }
+      if (inRange(scenario.off)) { s.worn = 0; }
+      if (inRange(scenario.nightWalk)) s.steps = Math.round(p.steps * (0.8 + 0.3 * r()));
+      if (inRange(scenario.active)) s.steps = Math.round(p.steps * (2.4 + 0.5 * r()));
+      if (scenario.lowActive && !isSleepHour(p, h)) s.steps = Math.round(s.steps * 0.35);
+      if (inRange(scenario.tempUp)) s.temp = +(s.temp + scenario.tempUp[2]).toFixed(1);
+      if (!s.worn) { s.steps = null; s.hr = null; s.temp = null; }
+      today.push(s);
+    }
+    return { hist, today };
+  }
+
+  // ───── 개인 기준선 (시간대별 중앙값 · MAD) ─────
+  function baseline(hist) {
+    const b = [];
+    for (let h = 0; h < 24; h++) {
+      const rows = hist.filter(x => x.h === h && x.worn);
+      const st = rows.map(x => x.steps), hr = rows.map(x => x.hr), tp = rows.map(x => x.temp);
+      b.push({
+        h, n: rows.length,
+        steps: median(st), stepsMad: mad(st) || 5,
+        hr: median(hr), hrMad: mad(hr) || 2,
+        temp: median(tp), tempMad: mad(tp) || 0.2,
+        wornRate: hist.filter(x => x.h === h).filter(x => x.worn).length / 14,
+      });
+    }
+    return b;
+  }
+
+  // ───── 링 이상 탐지 ─────
+  function ringFlags(p, data) {
+    const b = baseline(data.hist), T = data.today, flags = [];
+    // 1) 착용 중단 (평소 착용하는 시간대에 연속 미착용)
+    let off = 0; for (let i = T.length - 1; i >= 0 && !T[i].worn; i--) if (b[T[i].h].wornRate > 0.5) off++;
+    if (off >= 3) flags.push({ code: 'wear_off', label: `링 미착용 ${off}시간 지속 (평소 착용 시간대)` });
+    if (settingOf(p) === 'bed') return bedFlags(p, T, b, flags);
+    // 2) 장시간 활동 정지 (깨어 있는 시간, 착용 중)
+    let run = 0, best = 0;
+    for (const s of T) {
+      if (isSleepHour(p, s.h) || !s.worn) { run = 0; continue; }
+      const thr = Math.max(8, b[s.h].steps * 0.15);
+      run = s.steps < thr ? run + 1 : 0; best = Math.max(best, run);
+    }
+    if (best >= 3) flags.push({ code: 'inactive', label: `낮 시간 활동 정지 ${best}시간 (평소의 15% 미만)` });
+    // 3) 심박 이탈 (최근 3시간 중 2시간 이상 z>3)
+    const recent = T.slice(-3).filter(s => s.worn);
+    const hz = recent.map(s => (s.hr - b[s.h].hr) / (1.4826 * b[s.h].hrMad));
+    if (hz.filter(z => z > 3).length >= 2) flags.push({ code: 'hr', label: `심박이 평소보다 분당 ${Math.max(...recent.map(s => s.hr - b[s.h].hr))}회 높음 (3시간 중 2시간 이상)` });
+    // 4) 야간 활동
+    const night = T.filter(s => s.worn && isSleepHour(p, s.h)).filter(s => s.steps > b[s.h].steps + 6 * 1.4826 * b[s.h].stepsMad + 40);
+    if (night.length >= 2) flags.push({ code: 'night', label: `수면 시간대 활동 ${night.length}시간 (평소에 없던 움직임)` });
+    // 5) 피부온도 상승
+    const tz = T.slice(-4).filter(s => s.worn).map(s => s.temp - b[s.h].temp);
+    if (tz.filter(d => d > 1.0).length >= 3) flags.push({ code: 'fever', label: `피부온도 평소보다 +${Math.max(...tz).toFixed(1)}℃` });
+    // 6) 하루 활동량 급감
+    const awake = T.filter(s => s.worn && !isSleepHour(p, s.h));
+    const sumT = awake.reduce((a, s) => a + s.steps, 0), sumB = awake.reduce((a, s) => a + b[s.h].steps, 0);
+    if (awake.length >= 5 && sumT < sumB * 0.5) flags.push({ code: 'low', label: `오늘 활동량 평소의 ${Math.round(sumT / sumB * 100)}%` });
+    return { flags, baseline: b, setting: 'home' };
+  }
+
+  // ───── 와상 환자용 탐지 (활동 정지는 정상이므로 '체위 변경 지연' 등으로 바꿔 봄) ─────
+  function bedFlags(p, T, b, flags) {
+    // 1) 체위 변경 지연: 평소 움직임의 35% 미만이 연속 3시간 이상
+    let run = 0, best = 0;
+    for (const s of T) {
+      if (!s.worn) { run = 0; continue; }
+      const thr = Math.max(20, b[s.h].steps * 0.35);
+      run = s.steps < thr ? run + 1 : 0; best = Math.max(best, run);
+    }
+    if (best >= 3) flags.push({ code: 'noturn', label: `움직임 없음 ${best}시간 지속 (체위 변경 2시간 기준 초과 의심)` });
+    // 2) 심박 이탈
+    const recent = T.slice(-3).filter(s => s.worn);
+    const hz = recent.map(s => (s.hr - b[s.h].hr) / (1.4826 * b[s.h].hrMad));
+    if (hz.filter(z => z > 3).length >= 2) flags.push({ code: 'hr', label: `심박이 평소보다 분당 ${Math.max(...recent.map(s => s.hr - b[s.h].hr))}회 높음 (3시간 중 2시간 이상)` });
+    // 3) 야간 침상 이탈 시도: 수면 시간대 1시간 움직임이 평소 최대치의 3배 초과
+    const peak = Math.max(...b.map(x => x.steps).filter(Number.isFinite));
+    // 움직임이 평소 최대의 3배를 넘거나, 2배를 넘으면서 심박이 12회 이상 함께 오르면 이탈 시도 의심
+    const exit = T.filter(s => s.worn && isSleepHour(p, s.h) && (s.steps > peak * 3 || (s.steps > peak * 2 && s.hr > b[s.h].hr + 12)));
+    if (exit.length) flags.push({ code: 'bedexit', label: `새벽 ${exit[0].h}시 급격한 움직임 (평소 최대의 ${Math.round(exit[0].steps / peak)}배)` });
+    // 4) 야간 초조: 체위 변경이 없는 홀수 시간대에 움직임·심박 동반 상승 2시간 이상
+    // 움직임 증가 기준은 심박 상승이 함께 있을 때만 낮춰 적용 (손 떨림 등 평소 움직임이 많은 환자 대응)
+    const exitH = new Set(exit.map(s => s.h));
+    const agit = T.filter(s => s.worn && isSleepHour(p, s.h) && !exitH.has(s.h) && s.steps > b[s.h].steps + 3 * 1.4826 * b[s.h].stepsMad + 30 && s.hr > b[s.h].hr + 6);
+    if (agit.length >= 2) flags.push({ code: 'agit', label: `수면 시간대 움직임·심박 증가 ${agit.length}시간` });
+    // 5) 피부온도 상승
+    const tz = T.slice(-4).filter(s => s.worn).map(s => s.temp - b[s.h].temp);
+    if (tz.filter(d => d > 1.0).length >= 3) flags.push({ code: 'fever', label: `피부온도 평소보다 +${Math.max(...tz).toFixed(1)}℃` });
+    return { flags, baseline: b, setting: 'bed' };
+  }
+
+  // ───── 대화 · 메모 분석 (기본 분석 모드: 다국어 키워드) ─────
+  const TALK_RULES = [
+    { code: 'urgent', label: '자해·죽음 관련 발화', re: /죽고\s*싶|살기\s*싫|죽어\s*버리|사라지고\s*싶/ },
+    { code: 'physical', label: '통증·어지러움·낙상 호소', re: /아프|아파|통증|쑤시|쑤셔|결리|어지러|핑\s*돌|넘어졌|넘어져|미끄러|숨이\s*차|가슴이\s*답답|못\s*일어나|쓰러/ },
+    { code: 'mood', label: '외로움·우울·식욕 저하 표현', re: /외로|우울|입맛.*없|밥맛.*없|밥.*안\s*먹|하기\s*싫|귀찮|기운.*없|기력.*없|슬퍼|눈물/ },
+    { code: 'fever', label: '발열·오한 표현', re: /으슬|열이|춥|오한|몸살/ },
+    { code: 'sleep', label: '수면 문제 표현', re: /잠이\s*안|못\s*잤|잠을\s*못|밤에.*왔다\s*갔다/ },
+  ];
+  function analyzeTalk(text) {
+    if (!text) return [];
+    return TALK_RULES.filter(r => r.re.test(text)).map(r => ({ code: r.code, label: r.label }));
+  }
+
+  const MEMO_RULES = [
+    { cat: '식사', risk: true, label: '식사 거부·결식', re: /không ăn(?! được)|không chịu ăn|bỏ (bữa|ăn)|từ chối ăn|ăn rất ít|did ?n[o']t eat|would ?n[o']t eat|refused (food|to eat|meal|breakfast|lunch|dinner)|skipped (a )?meal|ate (very )?little|못\s*드시|거의\s*안\s*드|拒绝吃|不肯吃|식사\s*거부|안\s*드심|결식|不吃|没吃饭/i },
+    { cat: '낙상', risk: true, label: '낙상·멍·상처 흔적', re: /ngã|té|trượt|bầm|vết thương|fell|fall(en)?|slipped|bruise|injur|넘어|미끄러|멍|상처|摔倒|跌倒|滑倒|淤青/i },
+    { cat: '인지', risk: true, label: '혼란·기억 저하', re: /lẫn|quên|nhầm|confus|forgot|disorient|헷갈|기억\s*못|糊涂|忘记/i },
+    { cat: '통증', risk: true, label: '통증·불편감 표현', re: /đau|khó chịu|pain|ache|hurt|uncomfortable|discomfort|아프|아파|통증|쑤시|불편|疼|痛|不舒服/i },
+    { cat: '기분', risk: true, label: '우울·눈물·위축', re: /buồn|khóc|cô đơn|sad|cried|lonely|depress|우울|눈물|외로|难过|哭/i },
+    { cat: '피부', risk: true, label: '피부 발적·욕창 의심', re: /đỏ|loét|phồng rộp|redness|red (area|patch|spot)|pressure (sore|ulcer|injury)|blister|발적|욕창|빨갛|붉어|붉은|压疮|发红/i },
+    { cat: '호흡', risk: true, label: '기침·가래·호흡 변화', re: /\bho\b|đờm|khó thở|cough|phlegm|sputum|short(ness)? of breath|기침|가래|숨이|咳嗽|痰/i },
+    { cat: '의식', risk: true, label: '처짐·기면(반응 저하)', re: /li bì|lơ mơ|lethargic|drowsy|unresponsive|처짐|기면|축\s*처|嗜睡/i },
+    { cat: '체위', risk: false, label: '체위 변경 기록', re: /trở mình|xoay người|turned|repositioned|체위\s*변경|돌려\s*눕|翻身/i },
+    { cat: '수면', risk: false, label: '수면 관련 언급', re: /ngủ|sleep|insomnia|잠|睡/i },
+    { cat: '투약', risk: false, label: '투약 관련 언급', re: /thuốc|medic|pill|약|药/i },
+  ];
+  function detectLang(t) {
+    if (/[ăâđêôơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹ]/i.test(t)) return '베트남어';
+    if (/[一-鿿]/.test(t) && !/[가-힣]/.test(t)) return '중국어';
+    if (/[가-힣]/.test(t)) return '한국어';
+    return '영어';
+  }
+  // 케어브릿지 원칙: 메모에 없는 내용은 추정하지 않고 담당자 확인 항목으로 남긴다
+  const MEAL = /ăn|bữa|eat|ate|breakfast|lunch|dinner|meal|식사|드시|드심|드셨|밥|吃|饭/i;
+  const QTY = /\d|nửa|một ít|hết|half|all|most|%|절반|반\s*공기|그릇|공기|전부|다\s*드|一半|全部/i;
+  const TIME = /\d+\s*(giờ|h\b|시|点)|sáng|trưa|chiều|tối|đêm|morning|noon|afternoon|evening|night|breakfast|lunch|dinner|supper|a\.?m|p\.?m|아침|점심|저녁|오전|오후|새벽|밤|早|中午|下午|晚/i;
+  function memoChecks(text, items) {
+    const c = [], cats = new Set(items.map(i => i.cat));
+    if (MEAL.test(text) && !QTY.test(text)) c.push('식사 섭취량이 적혀 있지 않음 → 섭취량 확인');
+    if (!TIME.test(text)) c.push('관찰 시각이 적혀 있지 않음 → 시점 확인');
+    if (cats.has('낙상')) c.push('낙상 시각·부위·보고 여부 확인');
+    if (cats.has('피부')) c.push('발적 부위·크기와 체위 변경 기록 확인');
+    if (cats.has('통증')) c.push('통증 부위·정도 확인');
+    return c;
+  }
+  function analyzeMemo(text) {
+    if (!text || !text.trim()) return { lang: '-', items: [], risks: [] };
+    const items = MEMO_RULES.filter(r => r.re.test(text)).map(r => ({ cat: r.cat, label: r.label, risk: r.risk }));
+    return { lang: detectLang(text), items, risks: items.filter(i => i.risk), checks: memoChecks(text, items) };
+  }
+
+
+  // ───── 자동 기록 초안 (케어브릿지 8개 항목 + 링케어 확장) ─────
+  // 원칙: 원문에 있는 표현만 옮기고, 없는 사실은 채우지 않으며 "미기재"로 보류한다.
+  const sentences = t => String(t || '').split(/(?<=[.!?。！？;])\s*|\n+/).map(x => x.trim()).filter(Boolean);
+  const pick = (t, re) => sentences(t).filter(x => re.test(x));
+  const R_ = {
+    time: TIME,
+    support: [
+      ['체위 변경', /trở mình|xoay người|turned|repositioned|체위\s*변경|돌려\s*눕|翻身/i],
+      ['식사 보조', /đút ăn|cho (bà|ông|cụ) ăn|giúp ăn|fed|helped (her|him|them) (to )?eat|식사\s*보조|떠\s*드렸|喂饭|帮.*吃饭/i],
+      ['목욕·위생', /tắm|vệ sinh|thay tã|bath|washed|shower|diaper|목욕|씻겨|기저귀|洗澡|擦身|换尿布/i],
+      ['투약 보조', /cho (bà|ông|cụ) uống thuốc|gave (her |him )?(the )?(medication|medicine|pills)|투약\s*보조|약을?\s*드렸|喂药|给.*药/i],
+      ['이동·산책', /đi dạo|dìu|walk(ed)? with|helped (her|him) walk|산책|부축|이동\s*보조|散步|扶/i],
+    ],
+    mealNone: /không ăn(?! được)|không chịu ăn|bỏ (bữa|ăn)|từ chối ăn|did ?n[o']t eat|would ?n[o']t eat|refused (food|to eat|meal|breakfast|lunch|dinner)|skipped|안\s*드셨|드시지\s*않|거부|拒绝吃|不肯吃|没吃/i,
+    mealHalf: /nửa|half|절반|반\s*공기|一半/i,
+    mealAll: /ăn hết|finished|ate (all|everything)|다\s*드셨|전부\s*드|全部吃|吃完/i,
+    mealLittle: /ăn (rất )?ít|ate (very )?little|a few bites|조금|몇\s*숟가락|거의\s*못|못\s*드시|吃得很少|吃了一点/i,
+    sleepBad: /không ngủ|khó ngủ|thức (dậy )?nhiều|couldn't sleep|could not sleep|poor sleep|woke up (often|several)|잠을?\s*못|잠이\s*안|자주\s*깨|没睡好|睡不好|失眠/i,
+    sleepGood: /ngủ ngon|ngủ tốt|slept well|잘\s*주무|푹\s*주무|睡得好|睡得很好/i,
+    sleepDrowsy: /li bì|lơ mơ|drowsy|lethargic|처지|기면|축\s*처|嗜睡/i,
+    sleepAny: /ngủ|sleep|slept|nap|잠|주무|睡/i,
+    med: /thuốc|medic|pill|약|药/i,
+    medUnsure: /quên|chưa uống|chưa rõ|không rõ|forgot|missed|not sure|unclear|did ?n[o']t take|확인하지\s*못|확인\s*못|모르|누락|안\s*드셨|忘|没吃药|不确定/i,
+  };
+  function draftRecord(memoText, opts) {
+    opts = opts || {};
+    const t = String(memoText || '');
+    const has = t.trim().length > 0;
+    const f = [];
+    const add = (key, value, src, pending, quote) => f.push({ key, value, src, pending: !!pending, quote: quote || '' });
+    // 1. 방문·관찰 시점
+    const tq = has ? pick(t, R_.time) : [];
+    add('방문·관찰 시점', tq.length ? '원문에 시점 표현 있음' : '미기재', '메모', !tq.length, tq.join(' / '));
+    // 2. 제공한 지원
+    const sup = has ? R_.support.filter(([, re]) => re.test(t)) : [];
+    add('제공한 지원', sup.length ? sup.map(x => x[0]).join(', ') : '미기재', '메모', !sup.length, sup.length ? sup.map(([, re]) => pick(t, re)[0]).filter(Boolean).join(' / ') : '');
+    // 3. 식사
+    const mealQ = has ? pick(t, MEAL) : [];
+    let meal = '언급 없음', mealPend = false;
+    if (mealQ.length) {
+      if (R_.mealNone.test(t)) meal = '드시지 않음(원문 표현)';
+      else if (R_.mealHalf.test(t)) meal = '절반';
+      else if (R_.mealAll.test(t)) meal = '전량';
+      else if (R_.mealLittle.test(t)) { meal = '적게 드심(정량 미기재)'; mealPend = true; }
+      else { meal = '식사 언급 있음 · 섭취량 미기재'; mealPend = true; }
+    }
+    add('식사', meal, '메모', mealPend, mealQ.join(' / '));
+    // 4. 수면
+    const slQ = has ? pick(t, R_.sleepAny) : [];
+    let sl = '언급 없음';
+    if (R_.sleepDrowsy.test(t)) sl = '처짐·기면 표현';
+    else if (R_.sleepBad.test(t)) sl = '수면 어려움 표현';
+    else if (R_.sleepGood.test(t)) sl = '잘 주무심(원문 표현)';
+    else if (slQ.length) sl = '수면 언급 있음(원문 참조)';
+    add('수면', sl, '메모', false, slQ.join(' / '));
+    // 5. 불편감 표현 (해석하지 않고 원문·본인 표현 인용)
+    const painRe = MEMO_RULES.find(r => r.cat === '통증').re;
+    const pq = has ? pick(t, painRe) : [];
+    const selfQ = (opts.talkText && TALK_RULES.find(r => r.code === 'physical').re.test(opts.talkText)) ? opts.talkText : '';
+    add('불편감 표현', pq.length || selfQ ? '불편감 언급 있음(정도·부위는 원문 그대로)' : '언급 없음', selfQ && !pq.length ? '본인 대화' : '메모', false, [pq.join(' / '), selfQ ? `본인: "${selfQ}"` : ''].filter(Boolean).join(' · '));
+    // 6. 복약 관련 관찰 (복약 여부를 추정하지 않음)
+    const mq = has ? pick(t, R_.med) : [];
+    let med = '언급 없음', medPend = false;
+    if (mq.length) { if (R_.medUnsure.test(mq.join(' '))) { med = '복약 여부 미확인'; medPend = true; } else med = '복약 관련 언급 있음(원문 참조)'; }
+    add('복약 관련 관찰', med, '메모', medPend, mq.join(' / '));
+    // 7. 특이사항
+    const res = analyzeMemo(t);
+    const spec = res.items.filter(i => ['낙상', '피부', '호흡', '의식', '인지', '기분'].includes(i.cat));
+    add('특이사항', spec.length ? spec.map(i => i.label).join(', ') : '없음', '메모', false, spec.map(i => pick(t, MEMO_RULES.find(r => r.cat === i.cat).re)[0]).filter(Boolean).join(' / '));
+    // 8. 다음 확인사항
+    const next = (res.checks || []).slice();
+    if (medPend) next.push('복약 여부 확인');
+    if (!sup.length && has) next.push('제공한 지원 내용 확인');
+    add('다음 확인사항', next.length ? next.join(' · ') : '없음', '자동 점검', false, '');
+    // 링케어 확장: 센서·대화 (메모와 출처를 구분)
+    if (opts.ringFlags) add('센서 관찰 (링케어)', opts.ringFlags.length ? opts.ringFlags.map(x => x.label).join(' · ') : '평소 범위', '스마트링 자동', false, '');
+    if (opts.call) add('AI 대화 (링케어)', opts.call.na ? '대화 생략(야간·의사소통 어려움)' : opts.call.answered === false ? '무응답' : '응답', 'AI 대화 자동', false, opts.call.text ? `본인: "${opts.call.text}"` : '');
+    return { fields: f, lang: has ? detectLang(t) : '-', original: t, status: 'draft' };
+  }
+
+  // ───── 기록 초안 평가 세트 (합성 메모 · 정답 라벨) ─────
+  // meal: 절반|전량|적게|안드심|미기재|없음  med: 미확인|언급|없음  time: 시점 표현 유무
+  const MEMO_EVAL = [
+    { lang: 'ko', t: '점심을 절반 드셨고 무릎이 불편하다고 말씀하셨습니다. 복약 여부는 확인하지 못했습니다.', g: { meal: '절반', pain: 1, fall: 0, skin: 0, med: '미확인', time: 1 } },
+    { lang: 'ko', t: '오전 10시 체위 변경함. 아침 식사는 조금 드심. 기침은 없음.', g: { meal: '적게', pain: 0, fall: 0, skin: 0, med: '없음', time: 1 } },
+    { lang: 'ko', t: '저녁 다 드셨고 산책 20분 부축해 드림. 약 드렸음.', g: { meal: '전량', pain: 0, fall: 0, skin: 0, med: '언급', time: 1 } },
+    { lang: 'ko', t: '식사 거부하심. 엉덩이 쪽이 붉어짐.', g: { meal: '안드심', pain: 0, fall: 0, skin: 1, med: '없음', time: 0 } },
+    { lang: 'ko', t: '밤에 자주 깨셨다고 함. 화장실 앞에서 넘어지셨다고 하심, 다친 곳은 못 봄.', g: { meal: '없음', pain: 0, fall: 1, skin: 0, med: '없음', time: 1 } },
+    { lang: 'ko', t: '식사하셨음. 기분 좋아 보이심.', g: { meal: '미기재', pain: 0, fall: 0, skin: 0, med: '없음', time: 0 } },
+    { lang: 'vi', t: 'Bà ăn được nửa suất trưa. Bà nói đầu gối hơi đau. Chưa rõ bà đã uống thuốc chưa.', g: { meal: '절반', pain: 1, fall: 0, skin: 0, med: '미확인', time: 1 } },
+    { lang: 'vi', t: 'Đã trở mình cho bà lúc 10 giờ. Bà không chịu ăn sáng.', g: { meal: '안드심', pain: 0, fall: 0, skin: 0, med: '없음', time: 1 } },
+    { lang: 'vi', t: 'Bà ăn hết bữa tối, ngủ ngon.', g: { meal: '전량', pain: 0, fall: 0, skin: 0, med: '없음', time: 1 } },
+    { lang: 'vi', t: 'Vùng xương cụt bị đỏ. Bà ho có đờm.', g: { meal: '없음', pain: 0, fall: 0, skin: 1, med: '없음', time: 0 } },
+    { lang: 'vi', t: 'Bà bị té trong nhà tắm, kêu đau hông.', g: { meal: '없음', pain: 1, fall: 1, skin: 0, med: '없음', time: 0 } },
+    { lang: 'vi', t: 'Bà ăn ít, tôi đã cho bà uống thuốc lúc 8 giờ sáng.', g: { meal: '적게', pain: 0, fall: 0, skin: 0, med: '언급', time: 1 } },
+    { lang: 'en', t: 'She ate half of her lunch and said her knee felt uncomfortable. Not sure if she took her pills.', g: { meal: '절반', pain: 1, fall: 0, skin: 0, med: '미확인', time: 1 } },
+    { lang: 'en', t: 'Repositioned at 2 pm. Refused dinner.', g: { meal: '안드심', pain: 0, fall: 0, skin: 0, med: '없음', time: 1 } },
+    { lang: 'en', t: 'Finished breakfast. Slept well last night.', g: { meal: '전량', pain: 0, fall: 0, skin: 0, med: '없음', time: 1 } },
+    { lang: 'en', t: 'Slipped in the bathroom, no visible injury. Complained of hip pain.', g: { meal: '없음', pain: 1, fall: 1, skin: 0, med: '없음', time: 0 } },
+    { lang: 'en', t: 'Red patch on the left heel. Seemed drowsy.', g: { meal: '없음', pain: 0, fall: 0, skin: 1, med: '없음', time: 0 } },
+    { lang: 'en', t: 'Had some lunch. Gave her the medication.', g: { meal: '미기재', pain: 0, fall: 0, skin: 0, med: '언급', time: 1 } },
+    { lang: 'zh', t: '奶奶中午吃了一半，说膝盖不舒服。不确定她有没有吃药。', g: { meal: '절반', pain: 1, fall: 0, skin: 0, med: '미확인', time: 1 } },
+    { lang: 'zh', t: '早上帮她翻身。她拒绝吃早饭。', g: { meal: '안드심', pain: 0, fall: 0, skin: 0, med: '없음', time: 1 } },
+    { lang: 'zh', t: '晚饭全部吃完，睡得很好。', g: { meal: '전량', pain: 0, fall: 0, skin: 0, med: '없음', time: 1 } },
+    { lang: 'zh', t: '昨晚在浴室滑倒，髋部疼痛。', g: { meal: '없음', pain: 1, fall: 1, skin: 0, med: '없음', time: 1 } },
+    { lang: 'zh', t: '尾骨部位发红，咳嗽有痰。', g: { meal: '없음', pain: 0, fall: 0, skin: 1, med: '없음', time: 0 } },
+    { lang: 'zh', t: '吃了一点饭，已经给她药。', g: { meal: '적게', pain: 0, fall: 0, skin: 0, med: '언급', time: 0 } },
+  ];
+  function evalDrafts() {
+    const rows = MEMO_EVAL.map(e => {
+      const d = draftRecord(e.t), v = k => d.fields.find(x => x.key === k);
+      const mv = v('식사').value;
+      const meal = mv.startsWith('절반') ? '절반' : mv.startsWith('전량') ? '전량' : mv.startsWith('적게') ? '적게' : mv.startsWith('드시지') ? '안드심' : mv.startsWith('식사 언급') ? '미기재' : '없음';
+      const spec = v('특이사항').value;
+      const out = { meal, pain: v('불편감 표현').value.startsWith('불편감') ? 1 : 0, fall: /낙상/.test(spec) ? 1 : 0, skin: /피부/.test(spec) ? 1 : 0,
+        med: v('복약 관련 관찰').value.startsWith('복약 여부 미확인') ? '미확인' : v('복약 관련 관찰').value.startsWith('복약 관련') ? '언급' : '없음', time: v('방문·관찰 시점').pending ? 0 : 1 };
+      const keys = ['meal', 'pain', 'fall', 'skin', 'med', 'time'];
+      const miss = keys.filter(k => out[k] !== e.g[k]);
+      // 원문에 없는 사실 추가: 정답이 없음/0인데 초안이 무언가를 채운 경우
+      const added = keys.filter(k => (e.g[k] === 0 || e.g[k] === '없음') && out[k] !== e.g[k]).length + (e.g.meal === '미기재' && ['절반', '전량'].includes(out.meal) ? 1 : 0);
+      // 잘못된 보류 해제: 정답이 미기재/미확인인데 초안이 확정값을 채운 경우
+      const unhold = (e.g.meal === '미기재' && !['미기재'].includes(out.meal) && out.meal !== '적게' ? 1 : 0) + (e.g.med === '미확인' && out.med !== '미확인' ? 1 : 0) + (e.g.time === 0 && out.time === 1 ? 1 : 0);
+      return { lang: e.lang, text: e.t, gold: e.g, out, miss, added, unhold };
+    });
+    const nField = rows.length * 6, wrong = rows.reduce((a, r) => a + r.miss.length, 0);
+    const byLang = {};
+    rows.forEach(r => { byLang[r.lang] = byLang[r.lang] || { n: 0, ok: 0 }; byLang[r.lang].n += 6; byLang[r.lang].ok += 6 - r.miss.length; });
+    return { n: rows.length, fieldAcc: (nField - wrong) / nField, added: rows.reduce((a, r) => a + r.added, 0), unhold: rows.reduce((a, r) => a + r.unhold, 0), byLang, rows };
+  }
+
+  // ───── 교차검증 판단 (AI 링케어) ─────
+  function decide(ring, call, memo) {
+    const f = new Set(ring.flags.map(x => x.code));
+    const talk = call.answered ? analyzeTalk(call.text) : [];
+    const t = new Set(talk.map(x => x.code));
+    const m = new Set((memo && memo.risks || []).map(x => x.cat));
+    const bed = ring.setting === 'bed';
+    const noAns = call.answered === false;
+    const reasons = [], actions = [];
+    let level = 0;
+    const up = (lv, why) => { if (lv > level) level = lv; reasons.push(why); };
+
+    ring.flags.forEach(x => reasons.push('링: ' + x.label));
+    if (call.na) reasons.push('AI 대화: 야간·의사소통 어려움으로 생략 → 센서·간병 메모 중심 판단');
+    else if (noAns) reasons.push(bed ? 'AI 병상 대화: 2회 무반응' : 'AI 안부대화: 2회 무응답');
+    else if (call.retry) reasons.push('AI 안부대화: 1차 부재 → 재시도 응답');
+    else reasons.push(bed ? 'AI 병상 대화: 응답' : 'AI 안부대화: 정상 응답');
+    talk.forEach(x => reasons.push('대화: ' + x.label));
+    (memo && memo.risks || []).forEach(x => reasons.push('돌봄메모(담당자 확인): ' + x.label));
+
+    const ringCritical = f.has('inactive') || f.has('hr') || f.has('wear_off') || f.has('bedexit');
+    if (t.has('urgent')) up(2, '판단: 위험 발화 → 즉시 연결');
+    if (ringCritical && noAns) up(2, bed ? '판단: 링 이상 + 무반응 → 위기 의심' : '판단: 링 이상 + 무응답 → 위기 의심');
+    if (f.has('bedexit')) up(2, '판단: 야간 침상 이탈 시도 의심 → 낙상 위험 즉시 확인');
+    if (f.has('fever') && f.has('hr')) up(2, '판단: 발열 + 심박 상승 → 감염 악화 가능성, 즉시 확인');
+    if (f.has('noturn')) {
+      up(1, '판단: 체위 변경 지연 의심 → 피부 관찰 필요');
+      if (memo && memo.items && memo.items.some(i => i.cat === '체위')) reasons.push('판단: 간병기록에는 체위 변경이 있으나 센서 움직임 없음 → 기록 확인 필요');
+    }
+    if (f.has('agit')) up(1, '판단: 야간 초조 → 섬망 여부 관찰 (진단 아님)');
+    if (f.has('hr') && t.has('physical')) up(2, '판단: 심박 이상 + 신체 증상 호소');
+    if (m.has('낙상') && (f.has('inactive') || f.has('hr'))) up(2, '판단: 낙상 메모 + 링 이상');
+    if (t.has('physical') || t.has('mood') || t.has('fever')) up(1, '판단: 대화에서 위험 신호');
+    if (m.size) up(1, '판단: 돌봄메모에 담당자 확인 사항 있음');
+    if (f.has('night') || f.has('fever') || f.has('low')) up(1, '판단: 생활 리듬·체온 변화');
+    if (noAns && !ringCritical) up(1, '판단: 무응답이나 링 정상 → 당일 확인');
+    if (ringCritical && call.answered && level === 0) reasons.push('판단: 링 이상이나 본인 정상 응답 → 경보 해제(오경보 걸러냄)');
+    if (level === 0 && reasons.length <= 1) reasons.push('판단: 평소와 같음');
+
+    if (f.has('wear_off') && call.answered) actions.push('AI 대화로 링 충전·착용 안내');
+    if (bed) {
+      if (level === 2) actions.push('담당 간호사 즉시 병상 확인', '활력징후 측정 후 당직의 보고 여부 판단');
+      if (level === 1) actions.push('담당 간병인·간호사 당일 확인');
+      if (f.has('noturn') || m.has('피부')) actions.push('체위 변경 및 천골·발뒤꿈치 피부 관찰');
+      if (f.has('bedexit')) actions.push('침상 난간·낙상 위험 확인');
+      if (f.has('agit') || f.has('bedexit')) actions.push('야간 관찰 강화 (신체보호대는 의료법 기준에 따른 최후 수단)');
+    } else {
+      if (level === 2) actions.push('관제 2차 확인 전화', '담당 생활지원사 즉시 방문', '필요 시 119 연계');
+      if (level === 1) actions.push('담당자 당일 전화·방문 확인');
+    }
+    if (t.has('urgent')) actions.push('자살예방상담전화 109 등 전문기관 즉시 연계');
+    if (f.has('night') || m.has('인지')) actions.push('인지 변화 관찰 지속 (필요 시 치매안심센터 안내)');
+    if (level === 0) actions.push(bed ? '간호기록 요약 반영 · 가족 주간요약' : '일일 리포트 기록 · 가족 주간요약 반영');
+    return { level, reasons, actions, talk };
+  }
+
+  // ───── 비교 대상: 링 단독 판단 (교차검증 없음) ─────
+  function decideRingOnly(ring) {
+    const f = new Set(ring.flags.map(x => x.code));
+    if (f.has('inactive') || f.has('hr') || f.has('wear_off') || f.has('bedexit')) return 2;
+    if (ring.flags.length) return 1;
+    return 0;
+  }
+
+  function callFor(p, sc) { return p.nonverbal && !sc.call.na ? { na: true } : sc.call; }
+  function evaluateCase(p, sc, seed) {
+    const data = generate(p, sc, seed);
+    const ring = ringFlags(p, data);
+    const memo = sc.memo ? analyzeMemo(sc.memo) : null;
+    const res = decide(ring, callFor(p, sc), memo);
+    return { data, ring, memo, res, ringOnly: decideRingOnly(ring) };
+  }
+
+  // ───── 자동 검증: 3명 × 12시나리오 × 반복 ─────
+  function runValidation(reps) {
+    reps = reps || 10;
+    const rows = [];
+    let k = 0;
+    for (const p of PERSONAS) for (const sc of scenariosFor(p)) for (let i = 0; i < reps; i++) {
+      const seed = 1000 + (k++) * 7919;
+      const c = evaluateCase(p, sc, seed);
+      rows.push({ setting: settingOf(p), persona: p.name, scenario: sc.name, truth: sc.truth, cross: c.res.level, ringOnly: c.ringOnly });
+    }
+    function metrics(key, subset) {
+      const rows0 = rows;
+      return metricsOf(key, subset ? rows0.filter(r => r.setting === subset) : rows0);
+    }
+    function metricsOf(key, rows) {
+      const alerts = rows.filter(r => r[key] >= 1).length;
+      const urgent = rows.filter(r => r[key] === 2).length;
+      const falseUrgent = rows.filter(r => r[key] === 2 && r.truth < 2).length;
+      const falseAlert = rows.filter(r => r[key] >= 1 && r.truth === 0).length;
+      const crises = rows.filter(r => r.truth === 2).length;
+      const caught = rows.filter(r => r.truth === 2 && r[key] === 2).length;
+      const needCheck = rows.filter(r => r.truth >= 1).length;
+      const checked = rows.filter(r => r.truth >= 1 && r[key] >= 1).length;
+      const exact = rows.filter(r => r.truth === r[key]).length;
+      return { alerts, urgent, falseUrgent, falseAlert, crises, caught, missed: crises - caught,
+               recallCrisis: caught / crises, recallCheck: checked / needCheck, accuracy: exact / rows.length };
+    }
+    const byScenario = SCENARIOS.map(sc => {
+      const rs = rows.filter(r => r.scenario === sc.name);
+      const pct = (key, lv) => rs.filter(r => r[key] === lv).length / rs.length;
+      return { setting: sc.setting || 'home', scenario: sc.name, truth: sc.truth, n: rs.length,
+               crossMatch: rs.filter(r => r.cross === sc.truth).length / rs.length,
+               ringOnlyMatch: rs.filter(r => r.ringOnly === sc.truth).length / rs.length,
+               crossUrgent: pct('cross', 2), ringOnlyUrgent: pct('ringOnly', 2) };
+    });
+    const bySetting = {};
+    ['home', 'bed'].forEach(k => { bySetting[k] = { n: rows.filter(r => r.setting === k).length, cross: metrics('cross', k), ringOnly: metrics('ringOnly', k) }; });
+    return { n: rows.length, reps, cross: metrics('cross'), ringOnly: metrics('ringOnly'), bySetting, byScenario, rows };
+  }
+
+  // ───── 인지 추세 (주 단위 발화 특징, 합성) ─────
+  function cognitionSeries(p, seed) {
+    let hs = 77; for (const ch of p.id) hs = (hs * 31 + ch.charCodeAt(0)) >>> 0;
+    const r = rng(seed || hs);
+    const decline = p.id === 'lee';
+    const out = [];
+    for (let w = 1; w <= 16; w++) {
+      const drift = decline && w > 8 ? (w - 8) : 0;
+      out.push({
+        week: w,
+        rate: +(3.4 - drift * 0.09 + gauss(r) * 0.12).toFixed(2),   // 초당 음절
+        pause: +(0.22 + drift * 0.018 + gauss(r) * 0.015).toFixed(3), // 멈춤 비율
+      });
+    }
+    const base = out.slice(0, 6), bm = median(base.map(x => x.rate)), bs = (mad(base.map(x => x.rate)) * 1.4826) || 0.1;
+    let streak = 0, flagWeek = null;
+    out.forEach((x, i) => {
+      const win = out.slice(Math.max(0, i - 3), i + 1).map(y => y.rate);
+      x.avg4 = +(win.reduce((a, b) => a + b, 0) / win.length).toFixed(2);
+      if (i >= 6 && x.avg4 < bm - 1.5 * bs) { streak++; if (streak >= 3 && !flagWeek) flagWeek = x.week; } else streak = 0;
+    });
+    return { series: out, baseMedian: bm, baseSd: bs, flagWeek };
+  }
+
+  const api = { draftRecord, evalDrafts, MEMO_EVAL, callFor, settingOf, scenariosFor, PERSONAS, SCENARIOS, NOW, generate, baseline, ringFlags, analyzeTalk, analyzeMemo, detectLang, decide, decideRingOnly, evaluateCase, runValidation, cognitionSeries, isSleepHour };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.RingCare = api;
+})(this);
+
+</script>
+<script>
+(function () {
+  'use strict';
+  const R = window.RingCare;
+  const $ = (s, el) => (el || document).querySelector(s);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const LV = ['안정', '주의', '위기'];
+  const LV_DESC = ['평소와 같음', '담당자 당일 확인', '즉시 방문 필요'];
+
+  // ───── 상태 ─────
+  const state = {
+    assign: { kim: 'nap', park: 'fall', lee: 'memo', choi: 'normal', han: 'outing', yoon: 'mood', jung: 'bed_mismatch', song: 'bed_normal', kang: 'bed_sepsis', oh: 'bed_visit' },
+    filter: 'all', famOk: {},
+    memo: {},        // pid -> {text, result}
+    live: {},        // pid -> live call {answered, text, features}
+    sel: null, ai: false,
+  };
+  function seedOf(pid, sid) { let h = 2166136261; for (const c of pid + '|' + sid) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+
+  function evalPersona(p) {
+    const sc = R.SCENARIOS.find(s => s.id === state.assign[p.id]);
+    const data = R.generate(p, sc, seedOf(p.id, sc.id));
+    const ring = R.ringFlags(p, data);
+    const memoText = state.memo[p.id] ? state.memo[p.id].text : sc.memo;
+    let memo = memoText ? R.analyzeMemo(memoText) : null;
+    if (state.memo[p.id] && state.memo[p.id].result) memo = state.memo[p.id].result;
+    const call = state.live[p.id] || R.callFor(p, sc);
+    const res = R.decide(ring, call, memo);
+    if (state.live[p.id] && state.live[p.id].extra) state.live[p.id].extra.forEach(x => { if (!res.reasons.includes(x)) res.reasons.push(x); });
+    return { p, sc, data, ring, memo, memoText, call, res, ringOnly: R.decideRingOnly(ring) };
+  }
+
+  // ───── AI 서버 함수 (생성형 AI 모드, 없으면 기본 분석) ─────
+  async function ai(task, payload) {
+    if (!state.ai) return null;
+    try {
+      const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 20000);
+      const r = await fetch(state.aiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ task, ...payload }), signal: ctl.signal });
+      clearTimeout(tm);
+      if (!r.ok) return null;
+      return await r.json();
+    } catch (e) { return null; }
+  }
+  // 서버 함수 위치를 차례로 확인: Vercel(/api/ai) → Netlify. 정적 호스팅(GitHub Pages)에서는 둘 다 없으므로 기본 분석 모드 유지
+  (async function ping() {
+    if (location.protocol === 'file:') return;
+    for (const url of ['/api/ai', '/.netlify/functions/ai']) {
+      try {
+        const ctl = new AbortController(); setTimeout(() => ctl.abort(), 5000);
+        const r = await fetch(url, { signal: ctl.signal });
+        if (!r.ok) continue;
+        const j = await r.json();
+        if (j && j.ok) { state.ai = true; state.aiUrl = url; const b = $('#aiBadge'); b.textContent = '생성형 AI 연결됨'; b.classList.add('ai-on'); return; }
+      } catch (e) { /* 다음 후보 확인 */ }
+    }
+  })();
+
+  // ───── 탭 ─────
+  const TABS = ['dash', 'call', 'memo', 'rec', 'val', 'about'];
+  function showTab(id) {
+    document.querySelectorAll('nav.tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === id)));
+    TABS.forEach(t => { $('#p-' + t).hidden = t !== id; });
+    if (id === 'val') renderValidation();
+    if (id === 'rec') renderRecTab();
+  }
+  document.querySelectorAll('nav.tabs button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+  const h0 = (location.hash || '').slice(1); if (TABS.includes(h0)) setTimeout(() => showTab(h0), 0);
+
+  // ───── SVG 차트 ─────
+  function lineChart(o) {
+    const W = o.W || 640, H = o.H || 190, L = 40, Rm = 12, T = 12, B = 26;
+    const xs = o.x, n = xs.length;
+    const allv = [].concat(...o.series.map(s => s.values.filter(v => v != null)), o.band ? o.band.lo.concat(o.band.hi) : []);
+    let lo = Math.min(...allv), hi = Math.max(...allv);
+    if (o.yMin != null) lo = Math.min(lo, o.yMin);
+    const pad = (hi - lo) * 0.1 || 1; lo = Math.max(o.floor != null ? o.floor : -Infinity, lo - pad); hi = hi + pad;
+    const X = i => L + (W - L - Rm) * (i / (n - 1)), Y = v => T + (H - T - B) * (1 - (v - lo) / (hi - lo));
+    const ticks = 4, ty = []; for (let k = 0; k <= ticks; k++) ty.push(lo + (hi - lo) * k / ticks);
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.label)}">`;
+    ty.forEach(v => { s += `<line x1="${L}" x2="${W - Rm}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--grid)" stroke-width="1"/><text x="${L - 6}" y="${Y(v) + 4}" text-anchor="end" font-size="11" fill="var(--muted)" class="num">${o.dec ? v.toFixed(o.dec) : Math.round(v)}</text>`; });
+    xs.forEach((x, i) => { if (o.xEvery && i % o.xEvery) return; s += `<text x="${X(i)}" y="${H - 8}" text-anchor="middle" font-size="11" fill="var(--muted)">${esc(x)}</text>`; });
+    if (o.shade) o.shade.forEach(([a, b2]) => { s += `<rect x="${X(a) - 4}" y="${T}" width="${Math.max(8, X(b2) - X(a) + 8)}" height="${H - T - B}" fill="var(--sunk)"/>`; });
+    if (o.band) {
+      let d = ''; o.band.hi.forEach((v, i) => d += (i ? 'L' : 'M') + X(i) + ' ' + Y(v));
+      for (let i = n - 1; i >= 0; i--) d += 'L' + X(i) + ' ' + Y(o.band.lo[i]);
+      s += `<path d="${d}Z" fill="var(--band)" stroke="none"/>`;
+    }
+    o.series.forEach(se => {
+      let d = '', pen = false, last = null;
+      se.values.forEach((v, i) => { if (v == null) { pen = false; return; } d += (pen ? 'L' : 'M') + X(i) + ' ' + Y(v); pen = true; last = [X(i), Y(v)]; });
+      s += `<path d="${d}" fill="none" stroke="${se.color}" stroke-width="${se.w || 2}" ${se.dash ? 'stroke-dasharray="4 4"' : ''} stroke-linejoin="round"/>`;
+      if (last && se.dot) s += `<circle cx="${last[0]}" cy="${last[1]}" r="4" fill="${se.color}"/>`;
+    });
+    if (o.marker != null) s += `<line x1="${X(o.marker)}" x2="${X(o.marker)}" y1="${T}" y2="${H - B}" stroke="var(--warn)" stroke-dasharray="3 3"/><text x="${X(o.marker) + 4}" y="${T + 11}" font-size="11" fill="var(--warn)">${esc(o.markerLabel || '')}</text>`;
+    return s + '</svg>';
+  }
+
+  // ───── 대시보드 ─────
+  function renderDash() {
+    const all = R.PERSONAS.map(evalPersona).sort((a, b) => b.res.level - a.res.level);
+    const evs = all.filter(e => state.filter === 'all' || R.settingOf(e.p) === state.filter);
+    if (!state.sel || !evs.some(e => e.p.id === state.sel)) state.sel = evs[0].p.id;
+    const cnt = [0, 0, 0]; all.forEach(e => cnt[e.res.level]++);
+    const ringUrg = all.filter(e => e.ringOnly === 2).length, ourUrg = cnt[2];
+    $('#strip').innerHTML = `
+      <div class="stat"><div class="k">즉시 확인·방문 (위기)</div><div class="v num" style="color:var(--crisis)">${cnt[2]}<small> 명</small></div></div>
+      <div class="stat"><div class="k">당일 확인 (주의)</div><div class="v num" style="color:var(--warn)">${cnt[1]}<small> 명</small></div></div>
+      <div class="stat"><div class="k">평소와 같음 (안정)</div><div class="v num" style="color:var(--ok)">${cnt[0]}<small> 명</small></div></div>
+      <div class="stat"><div class="k">위기 경보 (링 단독 → 링케어)</div><div class="v num">${ringUrg} → ${ourUrg}<small> 건</small></div></div>`;
+    const cntOf = k => all.filter(e => k === 'all' || R.settingOf(e.p) === k).length;
+    $('#list').innerHTML = `<div class="filter" role="group" aria-label="대상 선택">${[['all', '전체'], ['home', '재가 독거'], ['bed', '요양병원']].map(([k, nm]) => `<button type="button" data-f="${k}" aria-pressed="${state.filter === k}">${nm} <span class="num">${cntOf(k)}</span></button>`).join('')}</div>` + evs.map(e => `
+      <div class="elder" data-level="${e.res.level}" data-pid="${e.p.id}" aria-current="${e.p.id === state.sel}" tabindex="0" role="button" aria-label="${esc(e.p.name)} 상세 보기">
+        <div class="row1"><span class="nm">${esc(e.p.name)} <span class="meta">${e.p.age}세 · ${e.p.sex} · 가명</span></span><span class="chip l${e.res.level}">${LV[e.res.level]}</span></div>
+        <div class="meta"><span class="tag ${R.settingOf(e.p)}">${R.settingOf(e.p) === 'bed' ? '요양병원' : '재가 독거'}</span> ${esc(e.p.note)}</div>
+        <div class="why">${esc((e.res.reasons.find(r => r.startsWith('판단')) || '').replace('판단: ', ''))}</div>
+        <div class="scenario" onclick="event.stopPropagation()">
+          <label for="sc-${e.p.id}">시연 시나리오 바꾸기</label>
+          <select id="sc-${e.p.id}" data-pid="${e.p.id}">${R.scenariosFor(e.p).map(s => `<option value="${s.id}" ${s.id === state.assign[e.p.id] ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select>
+        </div>
+      </div>`).join('');
+    document.querySelectorAll('.filter button').forEach(bt => bt.addEventListener('click', () => { state.filter = bt.dataset.f; renderDash(); }));
+    document.querySelectorAll('.elder').forEach(el => {
+      const go = () => { state.sel = el.dataset.pid; renderDash(); };
+      el.addEventListener('click', go);
+      el.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(); } });
+    });
+    document.querySelectorAll('.scenario select').forEach(se => se.addEventListener('change', () => {
+      state.assign[se.dataset.pid] = se.value; delete state.live[se.dataset.pid]; delete state.memo[se.dataset.pid];
+      state.sel = se.dataset.pid; renderDash();
+    }));
+    renderDetail(evs.find(e => e.p.id === state.sel));
+  }
+
+  function renderDetail(e) {
+    const bedMode = R.settingOf(e.p) === 'bed';
+    const p = e.p, b = e.ring.baseline, T = e.data.today, hrs = T.map(s => s.h + '시');
+    const offRanges = []; let st = null; T.forEach((s, i) => { if (!s.worn && st == null) st = i; if (s.worn && st != null) { offRanges.push([st, i - 1]); st = null; } }); if (st != null) offRanges.push([st, T.length - 1]);
+    const band = key => ({ lo: T.map(s => Math.max(0, b[s.h][key] - 2 * 1.4826 * b[s.h][key + 'Mad'])), hi: T.map(s => b[s.h][key] + 2 * 1.4826 * b[s.h][key + 'Mad']) });
+    const cog = R.cognitionSeries(p);
+    const call = e.call;
+    const talk = e.res.talk;
+    const fam = bedMode ? (e.res.level === 2 ? `오늘 ${p.name} 님께 위기 신호가 있어 담당 간호사가 즉시 확인했습니다. 자세한 내용은 병동에서 안내드립니다.` :
+      e.res.level === 1 ? `오늘 ${p.name} 님은 ${e.res.reasons.find(r => r.startsWith('판단')).replace('판단: ', '').split(' → ')[0]} 신호가 있어 간병인과 간호사가 확인했습니다.` :
+      `이번 주 ${p.name} 님은 평소처럼 지내셨고 체위 변경과 식사도 기록대로 이루어졌습니다.`) :
+      e.res.level === 2 ? `오늘 ${p.name} 님께 위기 신호가 있어 담당 생활지원사가 방문했습니다.` :
+      e.res.level === 1 ? `오늘 ${p.name} 님은 ${talk.length ? talk.map(t => t.label).join(', ') : '생활 리듬 변화'}가 있어 담당자가 확인할 예정입니다.` :
+      `이번 주 ${p.name} 님은 평소처럼 지내셨고 매일 안부전화에 응답하셨습니다.`;
+    $('#detail').innerHTML = `
+      <div class="verdict l${e.res.level}">
+        <div class="head"><span class="title">${esc(p.name)} · ${LV[e.res.level]}</span><span class="note">${bedMode ? ['평소와 같음', '간병인·간호사 당일 확인', '담당 간호사 즉시 확인'][e.res.level] : LV_DESC[e.res.level]} · 기준 시각 오늘 ${R.NOW}시 · 시나리오: ${esc(e.sc.name)}</span></div>
+        <div class="cols2">
+          <div><h3>판단 근거</h3><ul class="plain">${e.res.reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul></div>
+          <div><h3>권장 조치</h3><ul class="plain">${e.res.actions.map(r => `<li>${esc(r)}</li>`).join('')}</ul>
+            <p class="note" style="margin-top:8px">링 단독 판단이었다면: <b>${LV[e.ringOnly]}</b></p></div>
+        </div>
+      </div>
+      <div class="cols2">
+        <div class="panel"><h3>${bedMode ? '오늘 움직임 (손 움직임 횟수/시간 · 짝수 시 체위 변경)' : '오늘 활동량 (걸음/시간)'}</h3><div class="chart">${lineChart({ label: '오늘 활동량과 평소 범위', W: 380, H: 220, x: hrs, xEvery: 3, floor: 0, band: band('steps'), shade: offRanges, series: [{ values: T.map(s => s.steps), color: 'var(--accent)', dot: true }] })}</div>
+          <div class="legend"><span><i style="background:var(--band)"></i>평소 범위(14일)</span><span><i style="background:var(--accent)"></i>오늘</span><span><i style="background:var(--sunk)"></i>링 미착용</span></div></div>
+        <div class="panel"><h3>오늘 심박 (bpm)</h3><div class="chart">${lineChart({ label: '오늘 심박과 평소 범위', W: 380, H: 220, x: hrs, xEvery: 3, band: band('hr'), shade: offRanges, series: [{ values: T.map(s => s.hr), color: 'var(--crisis)', dot: true }] })}</div>
+          <div class="legend"><span><i style="background:var(--band)"></i>평소 범위(14일)</span><span><i style="background:var(--crisis)"></i>오늘</span></div></div>
+      </div>
+      <div class="cols2">
+        <div class="panel"><h3>${bedMode ? 'AI 병상 대화 (침상 옆 스피커)' : 'AI 안부전화'}</h3>
+          <div>${call.na ? '야간·의사소통 어려움으로 대화 생략 → 센서와 간병 메모로 판단' : call.answered ? (call.retry ? '1차 부재 → 재통화 응답' : '정상 응답') : `<b style="color:var(--crisis)">2회 ${bedMode ? '무반응' : '무응답'}</b>`}${call.live ? ' · 직접 체험한 대화' : ''}</div>
+          ${call.answered && call.text ? `<div class="quote">"${esc(call.text)}"</div>` : ''}
+          ${talk.length ? `<p class="note" style="margin-top:6px">감지: ${talk.map(t => esc(t.label)).join(', ')}</p>` : ''}
+        </div>
+        <div class="panel"><h3>${bedMode ? '간병 메모 (케어브릿지)' : '돌봄메모 (케어브릿지)'}</h3>
+          ${e.memo ? `<div class="note">원문 언어: ${esc(e.memo.lang)}</div>${e.memoText ? `<div class="quote">${esc(e.memoText)}</div>` : ''}
+            <ul class="plain" style="margin-top:6px">${e.memo.items.length ? e.memo.items.map(i => `<li>${i.risk ? '<b>담당자 확인: ' : ''}${esc(i.label || i.content)}${i.risk ? '</b>' : ''}</li>`).join('') : '<li>특이사항 없음</li>'}</ul>
+            ${e.memo.checks && e.memo.checks.length ? `<p class="note" style="margin-top:4px">다음 확인사항: ${e.memo.checks.map(esc).join(' · ')}</p>` : ''}
+            <div class="ctl"><button class="btn ghost" type="button" id="toRec" data-pid="${p.id}">이 메모로 오늘 기록 초안 만들기</button></div>` : '<p class="note">오늘 작성된 메모가 없습니다.</p>'}
+        </div>
+      </div>
+      <div class="panel"><h3>말 속도 추세 (최근 16주, 초당 음절)</h3>
+        <div class="chart">${lineChart({ label: '주별 말 속도 추세', dec: 1, H: 200, x: cog.series.map(s => s.week + '주'), xEvery: 2, band: { lo: cog.series.map(() => cog.baseMedian - 1.5 * cog.baseSd), hi: cog.series.map(() => cog.baseMedian + 1.5 * cog.baseSd) }, series: [{ values: cog.series.map(s => s.rate), color: 'var(--muted)', w: 1.5 }, { values: cog.series.map(s => s.avg4), color: 'var(--accent)', dot: true }], marker: cog.flagWeek ? cog.flagWeek - 1 : null, markerLabel: '검사 권유' })}</div>
+        <div class="legend"><span><i style="background:var(--band)"></i>본인 기준 범위(1~6주)</span><span><i style="background:var(--accent)"></i>4주 평균</span><span><i style="background:var(--muted)"></i>주별 값</span></div>
+        <p class="note" style="margin-top:6px">${cog.flagWeek ? `${cog.flagWeek}주차부터 3주 연속 기준 범위 아래 → 치매안심센터 선별검사 안내 대상(진단 아님)` : '본인 기준 범위 안에서 안정적입니다.'} · 합성 데이터 예시</p>
+      </div>
+      <div class="panel"><h3>가족 안부 요약 (초안)</h3><p style="margin:0">${esc(fam)}</p>
+        <div class="ctl">${state.famOk[p.id] ? '<span class="chip l0">담당자 승인됨 · 공유 가능</span><span class="note">시연용으로 실제 발송은 하지 않습니다</span>' : `<span class="chip l1">담당자 승인 전 · 공유 안 됨</span><button class="btn ghost" type="button" id="famOk" data-pid="${p.id}">담당자 승인</button>`}</div>
+        <p class="note" style="margin:4px 0 0">보호자 동의와 공유 권한을 확인한 경우에만, 담당자 승인 후 보냅니다.</p></div>`;
+    const fb = $('#famOk'); if (fb) fb.addEventListener('click', () => { state.famOk[fb.dataset.pid] = true; renderDash(); });
+    const tr = $('#toRec'); if (tr) tr.addEventListener('click', () => { $('#recWho').value = tr.dataset.pid; showTab('rec'); makeRecord(); });
+  }
+
+  // ───── 안부대화 ─────
+  const QUESTIONS = ['어르신, 안녕하세요. 링케어예요. 오늘 아침 식사는 하셨어요?', '밤에 잠은 잘 주무셨어요?', '오늘 기분은 어떠세요?', '어디 아프거나 불편한 데는 없으세요?'];
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let chat = null;
+  const who = $('#callWho'), memoWho = $('#memoWho');
+  R.PERSONAS.forEach(p => { who.add(new Option(p.name + ' (가명)', p.id)); memoWho.add(new Option(p.name + ' (가명)', p.id)); });
+  memoWho.value = 'lee';
+
+  function bubble(cls, text, meta) {
+    const d = document.createElement('div'); d.className = 'bub ' + cls;
+    d.innerHTML = esc(text) + (meta ? `<span class="m">${esc(meta)}</span>` : '');
+    $('#bubbles').appendChild(d); $('#bubbles').scrollTop = 1e6;
+  }
+  function speak(text) {
+    return new Promise(res => {
+      if (!('speechSynthesis' in window)) return res();
+      try {
+        const u = new SpeechSynthesisUtterance(text); u.lang = 'ko-KR'; u.rate = 0.92;
+        u.onend = res; u.onerror = res; speechSynthesis.cancel(); speechSynthesis.speak(u);
+        setTimeout(res, 9000);
+      } catch (e) { res(); }
+    });
+  }
+  async function ask() {
+    const q = QUESTIONS[chat.i];
+    bubble('ai', q);
+    await speak(q);
+    chat.qEnd = performance.now();
+    $('#typeIn').disabled = false; $('#typeSend').disabled = false; $('#micBtn').disabled = !SR;
+    $('#typeIn').focus();
+  }
+  function answer(text, voice) {
+    if (!chat || !text.trim()) return;
+    const now = performance.now();
+    const a = { q: QUESTIONS[chat.i], text: text.trim(), voice: !!voice, latency: voice ? voice.latency : (now - chat.qEnd) / 1000 };
+    if (voice && voice.dur > 0.3) { const syl = (a.text.match(/[가-힣]/g) || []).length; a.rate = syl / voice.dur; }
+    chat.answers.push(a);
+    bubble('me', a.text, `${a.voice ? '음성' : '입력'} · 응답까지 ${a.latency.toFixed(1)}초${a.rate ? ` · 초당 ${a.rate.toFixed(1)}음절` : ''}`);
+    $('#typeIn').value = ''; $('#typeIn').disabled = true; $('#typeSend').disabled = true; $('#micBtn').disabled = true;
+    chat.i++;
+    if (chat.i < QUESTIONS.length) ask(); else finishChat();
+  }
+  $('#callStart').addEventListener('click', () => {
+    $('#bubbles').innerHTML = ''; chat = { pid: who.value, i: 0, answers: [] };
+    $('#micState').textContent = SR ? '말로 답하기를 누르고 말씀하세요' : '이 브라우저는 음성인식을 지원하지 않아 글로 입력합니다';
+    $('#callResult').innerHTML = '<h2>대화 분석</h2><p class="note">대화 중입니다…</p>';
+    ask();
+  });
+  $('#typeForm').addEventListener('submit', ev => { ev.preventDefault(); answer($('#typeIn').value, null); });
+  $('#micBtn').addEventListener('click', () => {
+    if (!SR || !chat) return;
+    const rec = new SR(); rec.lang = 'ko-KR'; rec.interimResults = false; rec.maxAlternatives = 1;
+    let t0 = performance.now(), sStart = null, sEnd = null, got = false;
+    const ms = $('#micState'); ms.textContent = '듣는 중…'; ms.classList.add('live');
+    rec.onspeechstart = () => { sStart = performance.now(); };
+    rec.onspeechend = () => { sEnd = performance.now(); };
+    rec.onresult = ev => {
+      got = true; const txt = ev.results[0][0].transcript; const end = sEnd || performance.now(); const st2 = sStart || t0;
+      answer(txt, { latency: (st2 - chat.qEnd) / 1000, dur: (end - st2) / 1000 });
+    };
+    rec.onerror = ev => { ms.textContent = ev.error === 'not-allowed' ? '마이크 권한이 없어 글로 입력해 주세요' : '잘 듣지 못했어요. 다시 누르거나 글로 입력하세요'; };
+    rec.onend = () => { ms.classList.remove('live'); if (got) ms.textContent = ''; };
+    try { rec.start(); } catch (e) { ms.textContent = '음성인식을 시작하지 못했어요. 글로 입력하세요'; ms.classList.remove('live'); }
+  });
+
+  async function finishChat() {
+    const all = chat.answers.map(a => a.text).join(' ');
+    const p = R.PERSONAS.find(x => x.id === chat.pid);
+    let signals = R.analyzeTalk(all);
+    let reply = '말씀 고맙습니다. 오늘도 편안한 하루 보내세요. 내일 또 전화드릴게요.';
+    let summary = null;
+    const g = await ai('chat', { answers: chat.answers.map(a => ({ q: a.q, a: a.text })) });
+    if (g && Array.isArray(g.signals)) {
+      const map = { physical: '통증·어지러움·낙상 호소', mood: '외로움·우울·식욕 저하 표현', fever: '발열·오한 표현', sleep: '수면 문제 표현', urgent: '자해·죽음 관련 발화' };
+      g.signals.forEach(s => { if (map[s.type] && !signals.some(x => x.code === s.type)) signals.push({ code: s.type, label: map[s.type] + ' (생성형 AI)' }); });
+      if (g.reply_ko) reply = g.reply_ko; if (g.summary_ko) summary = g.summary_ko;
+    }
+    bubble('ai', reply); speak(reply);
+    const lat = chat.answers.map(a => a.latency), rates = chat.answers.filter(a => a.rate).map(a => a.rate);
+    const avgLat = lat.reduce((a, b) => a + b, 0) / lat.length;
+    const extra = [];
+    if (rates.length) extra.push(`대화: 평균 말 속도 초당 ${(rates.reduce((a, b) => a + b, 0) / rates.length).toFixed(1)}음절 · 평균 응답 ${avgLat.toFixed(1)}초 (추세 기록용)`);
+    // 링 시나리오의 대화를 직접 체험한 대화로 교체
+    const text = all;
+    state.live[p.id] = { answered: true, text, live: true, extra };
+    if (signals.some(s => / \(생성형 AI\)$/.test(s.label))) {
+      // 생성형 AI가 추가로 찾은 신호를 키워드로 반영
+      const kw = { physical: ' 아프', mood: ' 외로', fever: ' 으슬', sleep: ' 잠이 안', urgent: ' 죽고 싶' };
+      signals.filter(s => / \(생성형 AI\)$/.test(s.label)).forEach(s => { state.live[p.id].text += kw[s.code] || ''; });
+    }
+    const ev = evalPersona(p);
+    $('#callResult').innerHTML = `<h2>대화 분석 · ${esc(p.name)}</h2>
+      <div class="verdict l${ev.res.level}" style="margin:8px 0 12px"><div class="head"><span class="title">${LV[ev.res.level]}</span><span class="note">오늘 링 신호(${esc(ev.sc.name)})와 교차검증</span></div>
+        <ul class="plain">${ev.res.reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul></div>
+      ${summary ? `<p><b>대화 요약</b> ${esc(summary)}</p>` : ''}
+      <div class="tscroll"><table class="t"><thead><tr><th>질문</th><th>응답</th><th>응답까지</th><th>말 속도</th></tr></thead><tbody>
+      ${chat.answers.map(a => `<tr><td>${esc(a.q.replace('어르신, 안녕하세요. 링케어예요. ', ''))}</td><td>${esc(a.text)}</td><td class="num">${a.latency.toFixed(1)}초</td><td class="num">${a.rate ? a.rate.toFixed(1) + '/초' : '-'}</td></tr>`).join('')}
+      </tbody></table></div>
+      <p class="note" style="margin-top:8px">감지된 신호: ${signals.length ? signals.map(s => esc(s.label)).join(', ') : '없음'}. 말 속도는 음성으로 답했을 때만 측정됩니다. 대시보드에도 반영했습니다.</p>`;
+    chat = null; renderDash();
+  }
+
+  // ───── 케어브릿지: 관찰 메모 → 기록 초안 ─────
+  const SAMPLES = {
+    ko: '점심을 절반 드셨고 무릎이 불편하다고 말씀하셨습니다. 복약 여부는 확인하지 못했습니다.',
+    vi: 'Bà ăn được nửa suất trưa. Bà nói đầu gối hơi đau. Chưa rõ bà đã uống thuốc chưa.',
+    en: 'Repositioned at 2 pm. She ate a little and had a red patch on her left heel.',
+    zh: '奶奶今天没吃早饭，昨晚在浴室滑倒，说髋部疼痛。',
+  };
+  document.querySelectorAll('[data-sample]').forEach(b => b.addEventListener('click', () => { $('#memoIn').value = SAMPLES[b.dataset.sample]; }));
+  $('#memoIn').value = SAMPLES.ko;
+  let lastMemo = null;
+  const KO = { '식사': '식사', '낙상': '낙상', '인지': '인지', '통증': '통증', '기분': '기분', '수면': '수면', '투약': '투약', '피부': '피부', '호흡': '호흡', '의식': '의식', '체위': '체위' };
+  const SRC_LABEL = { '메모': '요양보호사 메모', '본인 대화': '어르신 본인 표현', '자동 점검': '자동 점검', '스마트링 자동': '스마트링(자동)', 'AI 대화 자동': 'AI 대화(자동)', '생성형 AI': '생성형 AI 초안' };
+  function draftTable(d, editable) {
+    return `<div class="tscroll"><table class="t rec"><thead><tr><th style="width:17%">항목</th><th>초안${editable ? ' (담당자 수정 가능)' : ''}</th><th style="width:30%">근거</th><th style="width:13%">상태</th></tr></thead><tbody>
+      ${d.fields.map((f, i) => `<tr><td><b>${esc(f.key)}</b><div class="note">${esc(SRC_LABEL[f.src] || f.src)}</div></td>
+        <td>${editable ? `<input type="text" class="recIn" data-i="${i}" value="${esc(f.value)}" ${d.status === 'approved' ? 'disabled' : ''} aria-label="${esc(f.key)}">` : esc(f.value)}${f.edited ? '<div class="note">담당자 수정</div>' : ''}</td>
+        <td class="note">${esc(f.quote || '-')}</td>
+        <td>${f.pending ? '<span class="chip l1">확인 필요</span>' : f.value === '미기재' ? '<span class="chip l1">미기재</span>' : f.edited ? '<span class="chip l0">담당자 수정</span>' : /자동/.test(f.src) ? '<span class="tag">자동 기록</span>' : f.quote ? '<span class="chip l0">원문 근거</span>' : '<span class="tag">해당 없음</span>'}</td></tr>`).join('')}
+      </tbody></table></div>`;
+  }
+  $('#memoGo').addEventListener('click', async () => {
+    const text = $('#memoIn').value;
+    $('#memoOut').innerHTML = '<h2>기록 초안</h2><p class="note">정리하는 중…</p>';
+    let res = R.analyzeMemo(text), d = R.draftRecord(text), translation = null, mode = '기본 분석(다국어 규칙: 한국어·베트남어·영어·중국어)';
+    const g = await ai('record', { text });
+    if (g && Array.isArray(g.fields) && g.fields.length) {
+      mode = '생성형 AI'; translation = g.translation_ko || null;
+      d = { fields: g.fields.map(f => ({ key: f.key, value: f.value || '미기재', pending: !!f.pending, quote: f.quote || '', src: '생성형 AI' })), lang: g.lang || d.lang, original: text, status: 'draft' };
+      const gm = await ai('memo', { text });
+      if (gm && Array.isArray(gm.items)) { const items = gm.items.filter(i => i && i.category).map(i => ({ cat: KO[i.category] || i.category, label: i.content_ko || '', content: i.content_ko || '', risk: !!i.risk })); res = { lang: gm.lang || res.lang, items, risks: items.filter(i => i.risk), checks: res.checks }; }
+    }
+    lastMemo = { text, result: res, draft: d };
+    $('#memoApply').disabled = false; $('#memoToRec').disabled = false;
+    $('#memoOut').innerHTML = `<h2>기록 초안</h2>
+      <p class="note">원문 언어: ${esc(d.lang)} · 분석: ${esc(mode)}</p>
+      <div class="quote"><span class="note">원문</span><br>${esc(text)}</div>
+      ${translation ? `<div class="quote"><span class="note">한국어 번역(생성형 AI)</span><br>${esc(translation)}</div>` : ''}
+      <div style="margin-top:10px">${draftTable(d, false)}</div>
+      <p class="note" style="margin-top:8px">AI는 메모에 없는 시점·섭취량·정도·복약 여부를 추정하지 않으며 진단이나 건강위험 판정을 하지 않습니다. 기록 확정과 공유 범위는 담당자가 결정합니다.${mode.startsWith('기본') ? ' 기본 분석은 정해진 표현만 인식하므로 다른 표현이나 언어는 놓칠 수 있습니다. 생성형 AI 모드에서는 문장 전체를 번역해 정리합니다.' : ''}</p>`;
+  });
+  $('#memoApply').addEventListener('click', () => {
+    if (!lastMemo) return; state.memo[memoWho.value] = lastMemo; state.sel = memoWho.value; renderDash(); showTab('dash');
+  });
+  $('#memoToRec').addEventListener('click', () => {
+    if (!lastMemo) return; state.memo[memoWho.value] = lastMemo; $('#recWho').value = memoWho.value; showTab('rec'); makeRecord();
+  });
+
+  // ───── 받아쓰기 (누를 때만, 녹음 파일 없음) ─────
+  $('#dictBtn').addEventListener('click', () => {
+    const ds = $('#dictState');
+    if (!SR) { ds.textContent = '이 브라우저는 받아쓰기를 지원하지 않습니다(크롬·엣지 권장)'; return; }
+    const rec = new SR(); rec.lang = $('#dictLang').value; rec.interimResults = false; rec.continuous = false;
+    ds.textContent = '듣는 중… 말을 마치면 자동으로 멈춥니다'; ds.classList.add('live');
+    rec.onresult = ev => { const t = Array.from(ev.results).map(r => r[0].transcript).join(' '); const box = $('#memoIn'); box.value = (box.value.trim() ? box.value.trim() + ' ' : '') + t; };
+    rec.onerror = ev => { ds.textContent = ev.error === 'not-allowed' ? '마이크 권한이 없어 글로 입력해 주세요' : '받아쓰기를 하지 못했어요. 다시 누르거나 글로 입력하세요'; };
+    rec.onend = () => { ds.classList.remove('live'); if (ds.textContent.startsWith('듣는 중')) ds.textContent = '받아쓴 내용을 확인하고 고쳐 주세요'; };
+    try { rec.start(); } catch (e) { ds.textContent = '받아쓰기를 시작하지 못했어요'; ds.classList.remove('live'); }
+  });
+
+  // ───── 돌봄 기록: 자동 작성 · 자동 저장 · 승인 ─────
+  const STORE = 'ringcare.records.v1';
+  const loadRecs = () => { try { return JSON.parse(localStorage.getItem(STORE) || '[]'); } catch (e) { return []; } };
+  let memRecs = loadRecs();
+  const saveRecs = () => { try { localStorage.setItem(STORE, JSON.stringify(memRecs)); return true; } catch (e) { return false; } };
+  let curRec = null;
+  const recWho = $('#recWho');
+  R.PERSONAS.forEach(p => recWho.add(new Option(p.name + ' (가명)', p.id)));
+  const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  async function makeRecord() {
+    const p = R.PERSONAS.find(x => x.id === recWho.value), e = evalPersona(p);
+    const memoText = state.memo[p.id] ? state.memo[p.id].text : (e.sc.memo || '');
+    const talkText = e.call && e.call.answered ? e.call.text : '';
+    let d = (state.memo[p.id] && state.memo[p.id].draft && state.memo[p.id].draft.original === memoText) ? JSON.parse(JSON.stringify(state.memo[p.id].draft)) : R.draftRecord(memoText, { talkText });
+    const ext = R.draftRecord('', { ringFlags: e.ring.flags, call: e.call }).fields.filter(f => f.key.includes('링케어'));
+    d.fields = d.fields.filter(f => !f.key.includes('링케어')).concat(ext);
+    if (!memoText) d.fields.forEach(f => { if (f.src === '메모') { f.value = '오늘 메모 없음'; f.pending = false; f.quote = ''; } });
+    curRec = { id: p.id + '-' + today(), pid: p.id, name: p.name, date: today(), level: e.res.level, status: 'draft', created: new Date().toISOString(), approvedAt: null, fields: d.fields, original: memoText, share: false };
+    autoSave('초안 자동 저장됨');
+    renderRecEditor();
+  }
+  function autoSave(msg) {
+    if (!curRec) return;
+    const i = memRecs.findIndex(r => r.id === curRec.id);
+    if (i >= 0) memRecs[i] = curRec; else memRecs.unshift(curRec);
+    const ok = saveRecs();
+    $('#recSaveState').textContent = ok ? `${msg} · ${new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}` : '이 브라우저에서는 저장할 수 없어 화면에서만 유지됩니다';
+    renderRecList();
+  }
+  function renderRecEditor() {
+    const r = curRec, el = $('#recEditor');
+    if (!r) { el.innerHTML = '<p class="note">대상을 고르고 "오늘 기록 초안 만들기"를 누르세요.</p>'; return; }
+    const st = r.status === 'approved' ? `<span class="chip l0">승인됨</span> <span class="note">${new Date(r.approvedAt).toLocaleString('ko-KR')}</span>` : '<span class="chip l1">초안 · 담당자 확인 전</span>';
+    const pend = r.fields.filter(f => f.pending || f.value === '미기재').length;
+    el.innerHTML = `<div class="head" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><h3 style="margin:0">${esc(r.name)} · ${esc(r.date)} 돌봄 기록</h3>${st}<span class="chip l${r.level}">오늘 위험도 ${['안정', '주의', '위기'][r.level]}</span></div>
+      ${r.original ? `<div class="quote"><span class="note">메모 원문</span><br>${esc(r.original)}</div>` : ''}
+      <div style="margin-top:10px">${draftTable(r, true)}</div>
+      <div class="ctl">
+        ${r.status === 'approved' ? '<button class="btn ghost" id="recUnapprove" type="button">승인 취소</button>' : `<button class="btn" id="recApprove" type="button">담당자 승인</button><span class="note">${pend ? `확인 필요·미기재 ${pend}개 항목을 확인한 뒤 승인하세요` : ''}</span>`}
+        <button class="btn ghost" id="recShare" type="button" ${r.status === 'approved' ? '' : 'disabled'}>가족 공유 요약 만들기</button>
+      </div>
+      <div id="recShareOut"></div>`;
+    el.querySelectorAll('.recIn').forEach(inp => inp.addEventListener('change', () => { const f = curRec.fields[+inp.dataset.i]; if (f.value !== inp.value) { f.value = inp.value; f.edited = true; f.pending = false; } autoSave('수정 내용 자동 저장됨'); renderRecEditor(); }));
+    const ap = $('#recApprove'); if (ap) ap.addEventListener('click', () => { curRec.status = 'approved'; curRec.approvedAt = new Date().toISOString(); autoSave('승인 저장됨'); renderRecEditor(); });
+    const un = $('#recUnapprove'); if (un) un.addEventListener('click', () => { curRec.status = 'draft'; curRec.approvedAt = null; curRec.share = false; autoSave('승인 취소 저장됨'); renderRecEditor(); });
+    $('#recShare').addEventListener('click', () => {
+      const v = k => (curRec.fields.find(f => f.key === k) || {}).value || '';
+      const lines = [`${curRec.name} 님 ${curRec.date} 안부`, v('식사') && !/언급 없음|메모 없음/.test(v('식사')) ? `식사: ${v('식사')}` : '', v('특이사항') && v('특이사항') !== '없음' ? `담당자가 확인한 사항: ${v('특이사항')}` : '오늘 특별한 사항은 없었습니다.', '자세한 내용은 담당 기관에 문의해 주세요.'].filter(Boolean);
+      curRec.share = true; autoSave('공유 요약 저장됨');
+      $('#recShareOut').innerHTML = `<div class="quote" style="margin-top:8px">${lines.map(esc).join('<br>')}</div><p class="note">시연용입니다. 실제로 발송하지 않으며, 실제 서비스에서는 보호자 동의와 공유 권한을 확인한 뒤 보냅니다.</p>`;
+    });
+  }
+  function renderRecList() {
+    const el = $('#recList');
+    if (!memRecs.length) { el.innerHTML = '<p class="note">저장된 기록이 없습니다.</p>'; }
+    else el.innerHTML = `<table class="t"><thead><tr><th>날짜</th><th>대상</th><th>상태</th><th>확인 필요</th><th></th></tr></thead><tbody>${memRecs.map((r, i) => `<tr><td class="num">${esc(r.date)}</td><td>${esc(r.name)}</td><td>${r.status === 'approved' ? '<span class="chip l0">승인됨</span>' : '<span class="chip l1">초안</span>'}</td><td class="num">${r.fields.filter(f => f.pending || f.value === '미기재').length}</td><td><button class="btn ghost" type="button" data-open="${i}">열기</button></td></tr>`).join('')}</tbody></table>`;
+    el.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => { curRec = memRecs[+b.dataset.open]; recWho.value = curRec.pid; renderRecEditor(); }));
+    const keys = ['방문·관찰 시점', '제공한 지원', '식사', '수면', '불편감 표현', '복약 관련 관찰', '특이사항', '다음 확인사항', '센서 관찰 (링케어)', 'AI 대화 (링케어)'];
+    const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    const csv = ['날짜,대상(가명),상태,승인시각,' + keys.join(',') + ',메모 원문'].concat(memRecs.map(r => [r.date, r.name, r.status === 'approved' ? '승인' : '초안', r.approvedAt || ''].concat(keys.map(k => (r.fields.find(f => f.key === k) || {}).value || ''), [r.original]).map(q).join(','))).join('\n');
+    $('#recBox').value = csv;
+    const dl = $('#recDl'); if (dl) { try { dl.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' })); } catch (e) { dl.hidden = true; } }
+  }
+  function renderRecTab() { renderRecList(); renderRecEditor(); }
+  $('#recMake').addEventListener('click', makeRecord);
+  $('#recCopy').addEventListener('click', async () => { const b = $('#recBox'); try { await navigator.clipboard.writeText(b.value); $('#recMsg').textContent = '복사했습니다'; } catch (e) { b.focus(); b.select(); $('#recMsg').textContent = '선택했습니다. Ctrl+C로 복사하세요'; } });
+  $('#recClear').addEventListener('click', () => {
+    const btn = $('#recClear');
+    if (btn.dataset.confirm !== '1') { btn.dataset.confirm = '1'; btn.textContent = '정말 지울까요? 한 번 더 누르세요'; setTimeout(() => { btn.dataset.confirm = ''; btn.textContent = '저장 기록 지우기'; }, 4000); return; }
+    memRecs = []; saveRecs(); curRec = null; btn.dataset.confirm = ''; btn.textContent = '저장 기록 지우기'; $('#recMsg').textContent = '지웠습니다'; renderRecTab();
+  });
+
+  // ───── 실측 데이터 분석 ─────
+  // 하루 단위 CSV(date,steps): 평일·주말을 섞은 기준선과 나눈 기준선을 비교
+  function realDaily(rows, out) {
+    const by = {};
+    rows.forEach(c => { const m = c[0].trim().match(/(\d{4})[-./](\d{1,2})[-./](\d{1,2})/); if (m && !isNaN(+c[1])) by[`${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`] = +c[1]; });
+    const keys = Object.keys(by).sort();
+    if (keys.length < 30) { out.innerHTML = '<p class="note">하루 단위 분석에는 최소 30일 기록이 필요합니다.</p>'; return; }
+    const D = k => new Date(k + 'T00:00:00Z'), K = d => d.toISOString().slice(0, 10), add = (d, n) => new Date(d.getTime() + n * 864e5);
+    const wk = d => { const w = d.getUTCDay(); return w === 0 || w === 6; };
+    const med = a => { const s = a.slice().sort((x, y) => x - y), m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+    const last = D(keys[keys.length - 1]), first = add(last, -364);
+    const days = []; for (let d = new Date(Math.max(first, add(D(keys[0]), 15))); d <= last; d = add(d, 1)) days.push(d);
+    const mixed = d => { const h = []; for (let k = 1; k <= 14; k++) { const v = by[K(add(d, -k))]; if (v != null) h.push(v); } return h.length >= 7 ? med(h) : null; };
+    const split = d => { const h = []; for (let k = 1; k < 120 && h.length < 8; k++) { const x = add(d, -k); if (wk(x) === wk(d) && by[K(x)] != null) h.push(by[K(x)]); } return h.length >= 5 ? med(h) : null; };
+    const evalRule = f => { const fl = []; let n = 0; days.forEach(d => { const v = by[K(d)], b = f(d); if (v == null || b == null) return; n++; if (v < 0.5 * b) fl.push({ d: K(d), v, b, we: wk(d) }); }); return { n, fl }; };
+    const A = evalRule(mixed), B = evalRule(split);
+    const pct = (a, n) => (a / n * 100).toFixed(1) + '%';
+    const recent = days.slice(-90), flB = new Set(B.fl.map(x => x.d)), flA = new Set(A.fl.map(x => x.d));
+    const W = 760, H = 200, L = 48, T = 12, Bm = 26, mx = Math.max(...recent.map(d => by[K(d)] || 0)) * 1.08;
+    const X = i => L + (W - L - 12) * i / (recent.length - 1), Y = v => T + (H - T - Bm) * (1 - v / mx);
+    let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="최근 90일 걸음 수">`;
+    [0, 0.25, 0.5, 0.75, 1].forEach(f => { const v = mx * f; svg += `<line x1="${L}" x2="${W - 12}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--grid)"/><text x="${L - 6}" y="${Y(v) + 4}" text-anchor="end" font-size="11" fill="var(--muted)">${Math.round(v / 1000)}k</text>`; });
+    recent.forEach((d, i) => { const v = by[K(d)]; if (v == null) return; const c = flB.has(K(d)) ? 'var(--crisis)' : flA.has(K(d)) ? 'var(--warn)' : wk(d) ? 'var(--muted)' : 'var(--accent)'; svg += `<rect x="${X(i) - 3}" y="${Y(v)}" width="6" height="${Y(0) - Y(v)}" fill="${c}" opacity="0.85"/>`; if (i % 15 === 0) svg += `<text x="${X(i)}" y="${H - 8}" text-anchor="middle" font-size="11" fill="var(--muted)">${K(d).slice(5)}</text>`; });
+    svg += '</svg>';
+    out.innerHTML = `<p>하루 단위 기록 ${A.n}일 분석 (${esc(K(days[0]))} ~ ${esc(K(last))})</p>
+      <table class="t"><thead><tr><th>기준선</th><th>경보일</th><th>그중 주말</th></tr></thead><tbody>
+      <tr><td>평일·주말 섞은 최근 14일 중앙값의 50% 미만</td><td class="num">${A.fl.length}일 (${pct(A.fl.length, A.n)})</td><td class="num">${A.fl.filter(x => x.we).length}일</td></tr>
+      <tr><td>평일·주말을 나눈 최근 8일 중앙값의 50% 미만</td><td class="num">${B.fl.length}일 (${pct(B.fl.length, B.n)})</td><td class="num">${B.fl.filter(x => x.we).length}일</td></tr></tbody></table>
+      <div class="chart" style="margin-top:10px">${svg}</div>
+      <div class="legend"><span><i style="background:var(--accent)"></i>평일</span><span><i style="background:var(--muted)"></i>주말</span><span><i style="background:var(--warn)"></i>섞은 기준선만 경보</span><span><i style="background:var(--crisis)"></i>나눈 기준선도 경보</span></div>
+      <p class="note" style="margin-top:6px">최근 90일 막대입니다. 경보일의 실제 사유(아팠는지, 여행·휴일인지)는 이 화면이 알 수 없으므로 본인이 확인해야 합니다.</p>`;
+  }
+  $('#realSample').addEventListener('click', () => {
+    const lines = ['datetime,steps,heart_rate']; const r0 = (n) => Math.round(n);
+    let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let d = 1; d <= 15; d++) for (let h = 0; h < 24; h++) {
+      if (d === 15 && h > 15) break;
+      const sleep = h >= 22 || h < 6; let st = sleep ? r0(rnd() * 8) : r0(250 + rnd() * 250); let hr = sleep ? r0(58 + rnd() * 6) : r0(70 + rnd() * 10);
+      if (d === 15 && h >= 11) { st = r0(rnd() * 5); hr = r0(96 + rnd() * 6); }
+      lines.push(`2026-10-${String(d).padStart(2, '0')} ${String(h).padStart(2, '0')}:00,${st},${hr}`);
+    }
+    $('#realText').value = lines.join('\n');
+    $('#realOut').innerHTML = '<p class="note">예시는 형식을 보여주는 가상 데이터입니다(마지막 날 11시부터 정지·심박 상승). 실제 측정값으로 바꿔 넣으세요.</p>';
+  });
+  $('#realFile').addEventListener('change', ev => { const f = ev.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => { $('#realText').value = String(rd.result); }; rd.readAsText(f); });
+  $('#realGo').addEventListener('click', () => {
+    const out = $('#realOut');
+    const rows = $('#realText').value.trim().split(/\r?\n/).slice(1).map(l => l.split(/[,;\t]/)).filter(c => c.length >= 2);
+    if (rows.length && rows.every(c => /^\s*\d{4}[-./]\d{1,2}[-./]\d{1,2}\s*$/.test(c[0]))) { realDaily(rows, out); return; }
+    const by = {};
+    rows.forEach(c => {
+      const m = String(c[0]).match(/(\d{4})[-./](\d{1,2})[-./](\d{1,2})[ T](\d{1,2})/); if (!m) return;
+      const day = `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`, h = +m[4];
+      const k = day + '|' + h; by[k] = by[k] || { day, h, steps: 0, hrs: [] };
+      by[k].steps += +c[1] || 0; if (c[2] && !isNaN(+c[2]) && +c[2] > 0) by[k].hrs.push(+c[2]);
+    });
+    const days = [...new Set(Object.values(by).map(x => x.day))].sort();
+    if (days.length < 4) { out.innerHTML = '<p class="note">최소 4일 이상의 시간별 기록이 필요합니다. 첫 줄은 제목(datetime,steps,heart_rate)으로 두세요.</p>'; return; }
+    const last = days[days.length - 1], base = days.slice(-15, -1);
+    const conv = (x, di) => ({ day: di, h: x.h, steps: x.steps, hr: x.hrs.length ? Math.round(x.hrs.reduce((a, b) => a + b, 0) / x.hrs.length) : null, temp: null, worn: 1 });
+    const hist = []; base.forEach((d, di) => { for (let h = 0; h < 24; h++) { const x = by[d + '|' + h]; hist.push(x ? conv(x, di) : { day: di, h, steps: null, hr: null, temp: null, worn: 0 }); } });
+    const todayRows = []; for (let h = 0; h < 24; h++) { const x = by[last + '|' + h]; if (x) todayRows.push(conv(x, base.length)); }
+    const sl = +$('#realSleep').value || 22, wk = +$('#realWake').value || 6;
+    const pz = { id: 'real', name: '실측', sleep: [sl, wk] };
+    let res;
+    try { res = R.ringFlags(pz, { hist, today: todayRows }); } catch (e) { out.innerHTML = '<p class="note">데이터를 해석하지 못했습니다. 형식을 확인하세요.</p>'; return; }
+    const b = res.baseline, T = todayRows;
+    const band = key => ({ lo: T.map(s => Math.max(0, (b[s.h][key] || 0) - 2 * 1.4826 * (b[s.h][key + 'Mad'] || 0))), hi: T.map(s => (b[s.h][key] || 0) + 2 * 1.4826 * (b[s.h][key + 'Mad'] || 0)) });
+    out.innerHTML = `<p>기준선 ${base.length}일 · 오늘(${esc(last)}) ${T.length}시간 분석</p>
+      <ul class="plain">${res.flags.length ? res.flags.map(f => `<li><b>${esc(f.label)}</b></li>`).join('') : '<li>평소 범위 안에 있습니다.</li>'}</ul>
+      <div class="cols2" style="margin-top:8px"><div class="chart">${lineChart({ label: '실측 걸음', W: 380, H: 220, x: T.map(s => s.h + '시'), xEvery: 3, floor: 0, band: band('steps'), series: [{ values: T.map(s => s.steps), color: 'var(--accent)', dot: true }] })}</div>
+      <div class="chart">${T.some(s => s.hr) ? lineChart({ label: '실측 심박', W: 380, H: 220, x: T.map(s => s.h + '시'), xEvery: 3, band: band('hr'), series: [{ values: T.map(s => s.hr), color: 'var(--crisis)', dot: true }] }) : '<p class="note">심박 기록이 없습니다.</p>'}</div></div>
+      <p class="note">링 대신 휴대폰·워치 기록이라 손 움직임이 아닌 걸음 수 기준입니다. 판단은 같은 개인 기준선 규칙을 씁니다.</p>`;
+  });
+
+  // ───── 검증 ─────
+  let VAL = null;
+  function renderValidation() {
+    if (!VAL) VAL = R.runValidation(10);
+    const ED = R.evalDrafts();
+    $('#valDraft').innerHTML = `<p class="note">한국어·베트남어·영어·중국어 합성 메모 ${ED.n}건(제안자 예시 포함)에서 6개 항목(식사량, 불편감, 낙상, 피부, 복약 확인, 시점)을 정답과 비교합니다. 개발자가 만든 평가 세트라 실제 메모 성능을 뜻하지 않습니다.</p>
+      <table class="t"><thead><tr><th>지표</th><th>첫 측정 (규칙 수정 전)</th><th>현재</th></tr></thead><tbody>
+      <tr><td>항목 정확도</td><td class="num">96.5%</td><td class="num">${(ED.fieldAcc * 100).toFixed(1)}%</td></tr>
+      <tr><td>원문에 없는 사실 추가</td><td class="num">0건</td><td class="num">${ED.added}건</td></tr>
+      <tr><td>확인 필요 항목을 잘못 확정</td><td class="num">1건</td><td class="num">${ED.unhold}건</td></tr></tbody></table>
+      <p class="note" style="margin-top:6px">첫 측정에서 찾은 오류 3종(한국어 '드셨', 영어 식사 시점 표현, 베트남어 'chưa rõ')을 고친 뒤의 "현재" 값은 같은 세트로 잰 것이라 근거로 쓰지 않습니다.</p>`;
+    const c = VAL.cross, r = VAL.ringOnly, pct = x => (x * 100).toFixed(1) + '%';
+    const nH = R.PERSONAS.filter(p => R.settingOf(p) === 'home').length, nB = R.PERSONAS.length - nH;
+    const sH = R.SCENARIOS.filter(x => !x.setting).length, sB = R.SCENARIOS.length - sH;
+    $('#valMeta').innerHTML = `특성이 서로 다른 가상 인물 ${R.PERSONAS.length}명(재가 독거 ${nH}명 × ${sH}종, 요양병원 와상 ${nB}명 × ${sB}종)의 시나리오를 각 ${VAL.reps}회 반복한 <b class="num">${VAL.n}</b>개 사례를 자동으로 판단해 정답 라벨과 비교했습니다. 정답은 시나리오마다 미리 정한 값(위기 ${c.crises}건 포함)입니다. 합성 데이터 기반의 사전검증이며 실제 현장 성능이 아닙니다.`;
+    const tile = (k, oldV, newV, good) => `<div class="stat"><div class="k">${k}</div><div class="vs"><span class="old num">${oldV}</span><span class="v num" style="color:${good}">${newV}</span></div><div class="note">링 단독 → 교차검증</div></div>`;
+    $('#kpi').innerHTML =
+      tile('즉시 방문이 불필요했던 위기 경보', r.falseUrgent + '건', c.falseUrgent + '건', 'var(--ok)') +
+      tile('확인이 불필요했던 경보', r.falseAlert + '건', c.falseAlert + '건', 'var(--ok)') +
+      tile('위기 탐지율', pct(r.recallCrisis), pct(c.recallCrisis), 'var(--accent)') +
+      tile('정답 일치율', pct(r.accuracy), pct(c.accuracy), 'var(--accent)');
+    const bar = (v, col) => `<div class="bar" title="${pct(v)}"><span style="width:${v * 100}%;background:${col}"></span></div>`;
+    const bs = VAL.bySetting, sRow = (k, nm) => `<tr><td>${nm}</td><td class="num">${bs[k].n}</td><td class="num">${bs[k].ringOnly.falseUrgent} → ${bs[k].cross.falseUrgent}</td><td class="num">${bs[k].ringOnly.falseAlert} → ${bs[k].cross.falseAlert}</td><td class="num">${bs[k].cross.caught}/${bs[k].cross.crises}</td><td class="num">${pct(bs[k].ringOnly.accuracy)} → ${pct(bs[k].cross.accuracy)}</td></tr>`;
+    const per = R.PERSONAS.map(p => { const rs = VAL.rows.filter(x => x.persona === p.name); return { p, n: rs.length, ok: rs.filter(x => x.cross === x.truth).length, okR: rs.filter(x => x.ringOnly === x.truth).length }; });
+    $('#valPersona').innerHTML = `<table class="t"><thead><tr><th>가상 인물</th><th>특성</th><th>사례</th><th>정답 일치율 (링 단독 → 교차검증)</th></tr></thead><tbody>${per.map(x => `<tr><td>${esc(x.p.name)} <span class="tag ${R.settingOf(x.p)}">${R.settingOf(x.p) === 'bed' ? '요양병원' : '재가'}</span></td><td>${esc(x.p.note)}</td><td class="num">${x.n}</td><td class="num">${pct(x.okR / x.n)} → ${pct(x.ok / x.n)}</td></tr>`).join('')}</tbody></table>`;
+    $('#valSetting').innerHTML = `<table class="t"><thead><tr><th>대상</th><th>사례</th><th>불필요한 위기 경보</th><th>불필요한 확인 경보</th><th>위기 탐지(교차검증)</th><th>정답 일치율</th></tr></thead><tbody>${sRow('home', '재가 독거 어르신')}${sRow('bed', '요양병원 와상 환자')}</tbody></table><p class="note" style="margin-top:6px">화살표는 링 단독 → 교차검증입니다.</p>`;
+    $('#valTable').innerHTML = `<table class="t"><thead><tr><th>대상</th><th>시나리오</th><th>정답</th><th>링 단독 일치</th><th></th><th>교차검증 일치</th><th></th></tr></thead><tbody>
+      ${VAL.byScenario.map(s => `<tr><td><span class="tag ${s.setting}">${s.setting === 'bed' ? '요양병원' : '재가'}</span></td><td>${esc(s.scenario)}</td><td><span class="chip l${s.truth}">${LV[s.truth]}</span></td>
+        <td class="num">${pct(s.ringOnlyMatch)}</td><td style="width:14%">${bar(s.ringOnlyMatch, 'var(--muted)')}</td>
+        <td class="num">${pct(s.crossMatch)}</td><td style="width:14%">${bar(s.crossMatch, 'var(--accent)')}</td></tr>`).join('')}
+      </tbody></table>`;
+    const lines = ['구분,링 단독,교차검증',
+      `전체 사례 수,${VAL.n},${VAL.n}`,
+      `담당자 경보(주의+위기),${r.alerts},${c.alerts}`,
+      `즉시 방문 경보(위기),${r.urgent},${c.urgent}`,
+      `불필요한 즉시 방문 경보,${r.falseUrgent},${c.falseUrgent}`,
+      `확인이 불필요했던 경보,${r.falseAlert},${c.falseAlert}`,
+      `위기 탐지,${r.caught}/${r.crises},${c.caught}/${c.crises}`,
+      `위기 놓침,${r.missed},${c.missed}`,
+      `정답 일치율,${pct(r.accuracy)},${pct(c.accuracy)}`,
+      `요양병원 정답 일치율,${pct(bs.bed.ringOnly.accuracy)},${pct(bs.bed.cross.accuracy)}`,
+      `요양병원 위기 탐지,${bs.bed.ringOnly.caught}/${bs.bed.ringOnly.crises},${bs.bed.cross.caught}/${bs.bed.cross.crises}`];
+    const csv = lines.join('\n');
+    $('#csvBox').value = csv;
+    const full = 'setting,persona,scenario,truth,ring_only,cross\n' + VAL.rows.map(x => [x.setting, x.persona, x.scenario, x.truth, x.ringOnly, x.cross].join(',')).join('\n');
+    if ($('#csvDl')) try { $('#csvDl').href = URL.createObjectURL(new Blob(['﻿' + csv + '\n\n' + full], { type: 'text/csv' })); } catch (e) { const d = $('#csvDl'); if (d) d.hidden = true; }
+  }
+  $('#csvCopy').addEventListener('click', async () => {
+    const box = $('#csvBox');
+    try { await navigator.clipboard.writeText(box.value); $('#copyMsg').textContent = '복사했습니다'; }
+    catch (e) { box.focus(); box.select(); $('#copyMsg').textContent = '선택했습니다. Ctrl+C로 복사하세요'; }
+  });
+
+  renderDash();
+})();
+</script>
+
+</body>
+</html>
